@@ -5,8 +5,6 @@
 - `@playwright/cli`
 - skill `playwright-cli` для `codex` и `claude-code`
 
-Опциональный plugin `playwright-skill` для Claude Code автоматически больше не ставится.
-
 ## Когда нужен `playwright-skill`
 
 `playwright-cli` лучше подходит как основной вариант:
