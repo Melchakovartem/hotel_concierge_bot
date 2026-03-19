@@ -54,6 +54,9 @@ jobs:
     name: Smoke (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      AQUA_GITHUB_TOKEN: ${{ github.token }}
 
     strategy:
       fail-fast: false
