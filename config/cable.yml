@@ -1,0 +1,12 @@
+development:
+  adapter: redis
+  url: <%= Rails.application.config_for(:redis).deep_symbolize_keys.fetch(:url) %>
+
+test:
+  adapter: redis
+  url: <%= Rails.application.config_for(:redis).deep_symbolize_keys.fetch(:url) %>
+
+production:
+  adapter: redis
+  url: <%= Rails.application.config_for(:redis).deep_symbolize_keys.fetch(:url) %>
+  channel_prefix: hotel_concierge_bot_production
