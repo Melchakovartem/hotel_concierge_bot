@@ -1,0 +1,22 @@
+<h1>Staff</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Role</th>
+      <th>Hotel</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @staff_members.each do |staff_member| %>
+      <tr>
+        <td><%= staff_member.name %></td>
+        <td><%= staff_member.email %></td>
+        <td><%= staff_member.role %></td>
+        <td><%= staff_member.hotel.name %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

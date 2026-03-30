@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Admin | Hotel Concierge Bot</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+  </head>
+
+  <body>
+    <header>
+      <nav>
+        <%= link_to "Hotels", admin_hotels_path %> |
+        <%= link_to "Staff", admin_staff_index_path %> |
+        <%= link_to "Tickets", admin_tickets_path %>
+      </nav>
+    </header>
+
+    <main>
+      <%= yield %>
+    </main>
+  </body>
+</html>

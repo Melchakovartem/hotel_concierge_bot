@@ -1,0 +1,20 @@
+<h1>Hotels</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Timezone</th>
+      <th>Created At</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @hotels.each do |hotel| %>
+      <tr>
+        <td><%= hotel.name %></td>
+        <td><%= hotel.timezone %></td>
+        <td><%= l(hotel.created_at, format: :short) %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
