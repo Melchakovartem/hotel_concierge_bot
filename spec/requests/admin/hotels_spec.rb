@@ -88,6 +88,50 @@ RSpec.describe "Admin hotels" do
     end
   end
 
+  describe "GET /admin/hotels/:slug" do
+    let!(:hotel) { create(:hotel, name: "Grand Palace", slug: "grand-palace-slug", timezone: "Europe/Moscow") }
+
+    it "returns 401 when not authenticated" do
+      get admin_hotel_path(hotel)
+
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it "renders the hotel details for admin role" do
+      admin = create(:staff, :admin, hotel: hotel)
+
+      get admin_hotel_path(hotel), headers: auth_header(admin)
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include(hotel.name, hotel.timezone, hotel.slug)
+    end
+
+    it "redirects manager to root" do
+      manager = create(:staff, :manager, hotel: hotel)
+
+      get admin_hotel_path(hotel), headers: auth_header(manager)
+
+      expect(response).to redirect_to(root_path)
+    end
+
+    it "redirects staff to root" do
+      staff = create(:staff, hotel: hotel)
+
+      get admin_hotel_path(hotel), headers: auth_header(staff)
+
+      expect(response).to redirect_to(root_path)
+    end
+
+    it "returns 404 when the hotel is not found" do
+      admin = create(:staff, :admin, hotel: hotel)
+
+      get admin_hotel_path("missing-slug"), headers: auth_header(admin)
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.body).to eq("Not Found")
+    end
+  end
+
   def auth_header(staff_record)
     encoded = Base64.strict_encode64("#{staff_record.email}:password")
     { "Authorization" => "Basic #{encoded}" }
