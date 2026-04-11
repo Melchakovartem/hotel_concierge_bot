@@ -55,6 +55,21 @@ RSpec.describe "Admin hotel tickets" do
       expect(response.body).to include("Unassigned")
     end
 
+    it "does not render tickets with cross-hotel associations" do
+      guest = create(:guest, hotel: hotel, name: "Alice Guest")
+      department = create(:department, hotel: hotel, name: "Housekeeping")
+      other_staff = create(:staff, hotel: other_hotel, name: "Bob Other")
+      ticket = create(:ticket, hotel: hotel, guest: guest, department: department, staff: nil, subject: "Broken record")
+
+      # Simulate invalid historical data that bypassed model validations.
+      ticket.update_columns(staff_id: other_staff.id)
+
+      get admin_hotel_tickets_path(hotel), headers: auth_header(admin)
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).not_to include("Broken record", "Bob Other")
+    end
+
     it "renders the empty state when hotel tickets are empty" do
       empty_hotel = create(:hotel, name: "Empty Hotel", slug: "empty-hotel-slug")
       guest_admin_hotel = create(:hotel, name: "Admin Hotel", slug: "admin-hotel-slug")
