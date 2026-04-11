@@ -50,19 +50,18 @@ RSpec.describe "GET /admin/hotels" do
       expect(response.body).to include(hotel.name)
     end
 
-    it "returns 200 with hotel name for manager role" do
+    it "returns 302 redirect to root_path for manager role" do
       manager = create(:staff, :manager, hotel: hotel)
       get admin_hotels_path, headers: auth_header(manager)
 
-      expect(response).to have_http_status(:ok)
-      expect(response.body).to include(hotel.name)
+      expect(response).to redirect_to(root_path)
     end
 
-    it "returns 403 for staff role" do
+    it "returns 302 redirect to root_path for staff role" do
       staff = create(:staff, hotel: hotel)
       get admin_hotels_path, headers: auth_header(staff)
 
-      expect(response).to have_http_status(:forbidden)
+      expect(response).to redirect_to(root_path)
     end
   end
 

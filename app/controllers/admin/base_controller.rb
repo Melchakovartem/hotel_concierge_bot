@@ -1,6 +1,7 @@
 module Admin
   class BaseController < ApplicationController
     before_action :authenticate_staff!
+    before_action :require_admin!
     layout "admin"
 
     private
@@ -24,6 +25,10 @@ module Admin
     def http_401
       response.headers["WWW-Authenticate"] = 'Basic realm="Admin"'
       render plain: "Unauthorized", status: :unauthorized
+    end
+
+    def require_admin!
+      redirect_to root_path unless @current_staff.admin?
     end
   end
 end
