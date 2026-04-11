@@ -10,3 +10,8 @@
   <dt>Slug</dt>
   <dd><%= @hotel.slug %></dd>
 </dl>
+
+<p>
+  <%= link_to t("admin.hotels.show.staff_link"), admin_hotel_staff_index_path(@hotel) %>
+  <%= link_to t("admin.hotels.show.tickets_link"), admin_hotel_tickets_path(@hotel) %>
+</p>

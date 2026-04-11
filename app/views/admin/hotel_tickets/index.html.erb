@@ -1,0 +1,32 @@
+<h1>Tickets for <%= @hotel.name %></h1>
+
+<% if @tickets.empty? %>
+  <p><%= t("admin.hotel_tickets.index.empty") %></p>
+<% else %>
+  <table>
+    <thead>
+      <tr>
+        <th>Subject</th>
+        <th>Body</th>
+        <th>Status</th>
+        <th>Priority</th>
+        <th>Guest</th>
+        <th>Department</th>
+        <th>Staff</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @tickets.each do |ticket| %>
+        <tr>
+          <td><%= ticket.subject %></td>
+          <td><%= ticket.body %></td>
+          <td><%= ticket.status %></td>
+          <td><%= ticket.priority %></td>
+          <td><%= ticket.guest.name %></td>
+          <td><%= ticket.department.name %></td>
+          <td><%= ticket.staff&.name || t("admin.hotel_tickets.index.unassigned") %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>
