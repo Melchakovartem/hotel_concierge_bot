@@ -1,7 +1,11 @@
 class Ticket < ApplicationRecord
+  belongs_to :hotel
   belongs_to :guest
   belongs_to :department
   belongs_to :staff, optional: true
+
+  validates :subject, presence: true
+  validates :body, presence: true
 
   enum :status, {
     new: 0,
