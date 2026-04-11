@@ -17,10 +17,13 @@
     <% else %>
       <% @hotels.each do |hotel| %>
         <tr>
-          <td><%= hotel.name %></td>
+          <td><%= link_to hotel.name, admin_hotel_path(hotel) %></td>
           <td><%= hotel.timezone %></td>
           <td><%= l(hotel.created_at, format: :short) %></td>
-          <td><%= link_to t(".edit_link"), edit_admin_hotel_path(hotel) %></td>
+          <td>
+            <%= link_to t(".edit_link"), edit_admin_hotel_path(hotel) %>
+            <%= button_to t(".delete_link"), admin_hotel_path(hotel), method: :delete %>
+          </td>
         </tr>
       <% end %>
     <% end %>

@@ -1,6 +1,6 @@
 module Admin
   class HotelsController < BaseController
-    before_action :set_hotel, only: %i[show edit update]
+    before_action :set_hotel, only: %i[show edit update destroy]
 
     def index
       @hotels = Hotel.order(:name)
@@ -34,6 +34,14 @@ module Admin
       else
         render :edit, status: :unprocessable_entity
       end
+    end
+
+    def destroy
+      @hotel.destroy!
+
+      redirect_to admin_hotels_path, notice: "Hotel was successfully deleted."
+    rescue ActiveRecord::DeleteRestrictionError
+      redirect_to admin_hotels_path, alert: "Hotel has associated records and cannot be deleted."
     end
 
     private

@@ -4,3 +4,4 @@ ru:
       index:
         empty: "Отели не найдены."
         edit_link: "Редактировать"
+        delete_link: "Удалить"

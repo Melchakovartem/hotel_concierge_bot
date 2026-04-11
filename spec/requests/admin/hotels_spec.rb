@@ -317,6 +317,62 @@ RSpec.describe "Admin hotels" do
     end
   end
 
+  describe "DELETE /admin/hotels/:slug" do
+    let!(:admin_hotel) { create(:hotel, name: "Admin Hotel", slug: "admin-hotel-slug") }
+    let!(:admin) { create(:staff, :admin, hotel: admin_hotel) }
+
+    it "returns 401 when not authenticated" do
+      hotel = create(:hotel, name: "Grand Palace", slug: "grand-palace-slug")
+
+      delete admin_hotel_path(hotel)
+
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it "deletes a hotel for admin role" do
+      hotel = create(:hotel, name: "Grand Palace", slug: "grand-palace-slug")
+
+      expect do
+        delete admin_hotel_path(hotel), headers: auth_header(admin)
+      end.to change(Hotel, :count).by(-1)
+
+      expect(response).to redirect_to(admin_hotels_path)
+      expect(flash[:notice]).to eq("Hotel was successfully deleted.")
+    end
+
+    it "does not delete a hotel with associated records" do
+      hotel = create(:hotel, name: "Grand Palace", slug: "grand-palace-slug")
+      guest = create(:guest, hotel: hotel)
+      department = create(:department, hotel: hotel)
+      create(:ticket, hotel: hotel, guest: guest, department: department, staff: nil)
+
+      expect do
+        delete admin_hotel_path(hotel), headers: auth_header(admin)
+      end.not_to change(Hotel, :count)
+
+      expect(response).to redirect_to(admin_hotels_path)
+      expect(flash[:alert]).to eq("Hotel has associated records and cannot be deleted.")
+    end
+
+    it "redirects manager to root" do
+      hotel = create(:hotel, name: "Grand Palace", slug: "grand-palace-slug")
+      manager = create(:staff, :manager, hotel: admin_hotel)
+
+      delete admin_hotel_path(hotel), headers: auth_header(manager)
+
+      expect(response).to redirect_to(root_path)
+    end
+
+    it "redirects staff to root" do
+      hotel = create(:hotel, name: "Grand Palace", slug: "grand-palace-slug")
+      staff = create(:staff, hotel: admin_hotel)
+
+      delete admin_hotel_path(hotel), headers: auth_header(staff)
+
+      expect(response).to redirect_to(root_path)
+    end
+  end
+
   def auth_header(staff_record)
     encoded = Base64.strict_encode64("#{staff_record.email}:password")
     { "Authorization" => "Basic #{encoded}" }
