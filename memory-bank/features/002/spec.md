@@ -195,8 +195,6 @@ class BaseService
   class << self
     def call(**args)
       new(**args).call
-    rescue Dry::Types::ConstraintError, Dry::Types::MissingKeyError => e
-      Result.new(success: false, error_code: :invalid_arguments, messages: [e.message])
     end
   end
 
