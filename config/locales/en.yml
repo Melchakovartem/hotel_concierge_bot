@@ -30,8 +30,18 @@
 en:
   hello: "Hello world"
   admin:
+    hotel_staff:
+      index:
+        empty: "No staff found for this hotel."
+    hotel_tickets:
+      index:
+        empty: "No tickets found for this hotel."
+        unassigned: "Unassigned"
     hotels:
       index:
         empty: "No hotels found."
         edit_link: "Edit"
         delete_link: "Delete"
+      show:
+        staff_link: "Hotel Staff"
+        tickets_link: "Hotel Tickets"
