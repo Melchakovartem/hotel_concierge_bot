@@ -15,10 +15,12 @@ RSpec.describe "Admin access" do
     )
   end
   let!(:ticket) do
-    Ticket.create!(
+    create(
+      :ticket,
+      hotel: hotel,
+      staff: staff_member,
       guest: guest,
       department: department,
-      staff: staff_member,
       status: :in_progress,
       priority: :high
     )
