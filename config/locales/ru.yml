@@ -3,3 +3,4 @@ ru:
     hotels:
       index:
         empty: "Отели не найдены."
+        edit_link: "Редактировать"

@@ -6,12 +6,13 @@
       <th>Name</th>
       <th>Timezone</th>
       <th>Created At</th>
+      <th>Actions</th>
     </tr>
   </thead>
   <tbody>
     <% if @hotels.empty? %>
       <tr>
-        <td colspan="3"><%= t("admin.hotels.index.empty") %></td>
+        <td colspan="4"><%= t("admin.hotels.index.empty") %></td>
       </tr>
     <% else %>
       <% @hotels.each do |hotel| %>
@@ -19,6 +20,7 @@
           <td><%= hotel.name %></td>
           <td><%= hotel.timezone %></td>
           <td><%= l(hotel.created_at, format: :short) %></td>
+          <td><%= link_to t(".edit_link"), edit_admin_hotel_path(hotel) %></td>
         </tr>
       <% end %>
     <% end %>

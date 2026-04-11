@@ -1,0 +1,19 @@
+<h1>Edit Hotel</h1>
+
+<%= render "shared/errors", object: @hotel %>
+
+<%= form_with model: [:admin, @hotel], url: admin_hotel_path(@hotel), method: :patch do |form| %>
+  <div>
+    <%= form.label :name %>
+    <%= form.text_field :name %>
+  </div>
+
+  <div>
+    <%= form.label :timezone %>
+    <%= form.time_zone_select :timezone %>
+  </div>
+
+  <div>
+    <%= form.submit "Update Hotel" %>
+  </div>
+<% end %>

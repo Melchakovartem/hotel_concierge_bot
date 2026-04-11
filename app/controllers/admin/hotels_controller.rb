@@ -1,6 +1,6 @@
 module Admin
   class HotelsController < BaseController
-    before_action :set_hotel, only: :show
+    before_action :set_hotel, only: %i[show edit update]
 
     def index
       @hotels = Hotel.order(:name)
@@ -20,6 +20,19 @@ module Admin
         redirect_to admin_hotels_path, notice: "Hotel was successfully created."
       else
         render :new, status: :unprocessable_entity
+      end
+    end
+
+    def edit; end
+
+    def update
+      result = Admin::Hotels::UpdateService.call(hotel: @hotel, params: hotel_params)
+      @hotel = result.result
+
+      if result.success?
+        redirect_to admin_hotels_path, notice: "Hotel was successfully updated."
+      else
+        render :edit, status: :unprocessable_entity
       end
     end
 

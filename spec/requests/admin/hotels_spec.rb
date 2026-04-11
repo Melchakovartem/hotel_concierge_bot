@@ -226,6 +226,97 @@ RSpec.describe "Admin hotels" do
     end
   end
 
+  describe "GET /admin/hotels/:slug/edit" do
+    let!(:hotel) { create(:hotel, name: "Grand Palace", slug: "grand-palace-slug", timezone: "Europe/Moscow") }
+
+    it "returns 401 when not authenticated" do
+      get edit_admin_hotel_path(hotel)
+
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it "renders the edit form for admin role" do
+      admin = create(:staff, :admin, hotel: hotel)
+
+      get edit_admin_hotel_path(hotel), headers: auth_header(admin)
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Edit Hotel", "Update Hotel", hotel.name)
+    end
+
+    it "redirects manager to root" do
+      manager = create(:staff, :manager, hotel: hotel)
+
+      get edit_admin_hotel_path(hotel), headers: auth_header(manager)
+
+      expect(response).to redirect_to(root_path)
+    end
+
+    it "redirects staff to root" do
+      staff = create(:staff, hotel: hotel)
+
+      get edit_admin_hotel_path(hotel), headers: auth_header(staff)
+
+      expect(response).to redirect_to(root_path)
+    end
+  end
+
+  describe "PATCH /admin/hotels/:slug" do
+    let!(:hotel) { create(:hotel, name: "Grand Palace", slug: "grand-palace-slug", timezone: "Europe/Moscow") }
+
+    it "returns 401 when not authenticated" do
+      patch admin_hotel_path(hotel), params: { hotel: { name: "Aurora", timezone: "Europe/London" } }
+
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it "updates a hotel for admin role" do
+      admin = create(:staff, :admin, hotel: hotel)
+
+      patch admin_hotel_path(hotel),
+            params: { hotel: { name: "Aurora", timezone: "Europe/London", slug: "ignored-slug" } },
+            headers: auth_header(admin)
+
+      expect(response).to redirect_to(admin_hotels_path)
+      expect(flash[:notice]).to eq("Hotel was successfully updated.")
+      expect(hotel.reload.name).to eq("Aurora")
+      expect(hotel.timezone).to eq("Europe/London")
+      expect(hotel.slug).to eq("grand-palace-slug")
+    end
+
+    it "renders errors when the hotel is invalid" do
+      admin = create(:staff, :admin, hotel: hotel)
+
+      patch admin_hotel_path(hotel),
+            params: { hotel: { name: "", timezone: "" } },
+            headers: auth_header(admin)
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.body).to include("Name can&#39;t be blank", "Timezone can&#39;t be blank")
+      expect(hotel.reload.slug).to eq("grand-palace-slug")
+    end
+
+    it "redirects manager to root" do
+      manager = create(:staff, :manager, hotel: hotel)
+
+      patch admin_hotel_path(hotel),
+            params: { hotel: { name: "Aurora", timezone: "Europe/London" } },
+            headers: auth_header(manager)
+
+      expect(response).to redirect_to(root_path)
+    end
+
+    it "redirects staff to root" do
+      staff = create(:staff, hotel: hotel)
+
+      patch admin_hotel_path(hotel),
+            params: { hotel: { name: "Aurora", timezone: "Europe/London" } },
+            headers: auth_header(staff)
+
+      expect(response).to redirect_to(root_path)
+    end
+  end
+
   def auth_header(staff_record)
     encoded = Base64.strict_encode64("#{staff_record.email}:password")
     { "Authorization" => "Basic #{encoded}" }
