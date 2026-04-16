@@ -22,7 +22,10 @@
           <td><%= l(hotel.created_at, format: :short) %></td>
           <td>
             <%= link_to t(".edit_link"), edit_admin_hotel_path(hotel) %>
-            <%= button_to t(".delete_link"), admin_hotel_path(hotel), method: :delete %>
+            <%= button_to t(".delete_link"),
+                          admin_hotel_path(hotel),
+                          method: :delete,
+                          form: { data: { turbo_confirm: "Are you sure?" } } %>
           </td>
         </tr>
       <% end %>

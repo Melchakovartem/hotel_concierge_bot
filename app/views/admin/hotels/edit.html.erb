@@ -10,7 +10,10 @@
 
   <div>
     <%= form.label :timezone %>
-    <%= form.time_zone_select :timezone %>
+    <%= form.time_zone_select :timezone,
+                              ActiveSupport::TimeZone.all,
+                              { include_blank: "Select timezone" },
+                              { class: "form-control" } %>
   </div>
 
   <div>

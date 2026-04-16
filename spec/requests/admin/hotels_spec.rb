@@ -83,7 +83,7 @@ RSpec.describe "Admin hotels" do
         get admin_hotels_path, headers: auth_header(admin)
 
         expect(response).to have_http_status(:ok)
-        expect(response.body).to include("No hotels found.")
+        expect(response.body).to include("No hotels yet.")
       end
     end
   end
@@ -104,6 +104,7 @@ RSpec.describe "Admin hotels" do
 
       expect(response).to have_http_status(:ok)
       expect(response.body).to include(hotel.name, hotel.timezone, hotel.slug)
+      expect(response.body).to include(admin_hotel_staff_index_path(hotel), admin_hotel_tickets_path(hotel))
     end
 
     it "redirects manager to root" do
@@ -205,6 +206,46 @@ RSpec.describe "Admin hotels" do
       expect(response.body).to include("Name can&#39;t be blank", "Timezone can&#39;t be blank")
     end
 
+    it "renders errors when the hotel name is missing" do
+      admin = create(:staff, :admin, hotel: hotel)
+
+      expect do
+        post admin_hotels_path,
+             params: { hotel: { name: "", timezone: "Europe/London" } },
+             headers: auth_header(admin)
+      end.not_to change(Hotel, :count)
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.body).to include("Name can&#39;t be blank")
+    end
+
+    it "renders errors when the hotel timezone is missing" do
+      admin = create(:staff, :admin, hotel: hotel)
+
+      expect do
+        post admin_hotels_path,
+             params: { hotel: { name: "Aurora Palace", timezone: "" } },
+             headers: auth_header(admin)
+      end.not_to change(Hotel, :count)
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.body).to include("Timezone can&#39;t be blank")
+    end
+
+    it "renders errors when name and generated slug are duplicates" do
+      admin = create(:staff, :admin, hotel: hotel)
+      existing_hotel = create(:hotel, name: "Duplicate Hotel", slug: "duplicate-hotel-slug")
+
+      expect do
+        post admin_hotels_path,
+             params: { hotel: { name: existing_hotel.name, timezone: "Europe/London" } },
+             headers: auth_header(admin)
+      end.not_to change(Hotel, :count)
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.body).to include("Name has already been taken", "Slug has already been taken")
+    end
+
     it "redirects manager to root" do
       manager = create(:staff, :manager, hotel: hotel)
 
@@ -258,6 +299,15 @@ RSpec.describe "Admin hotels" do
       get edit_admin_hotel_path(hotel), headers: auth_header(staff)
 
       expect(response).to redirect_to(root_path)
+    end
+
+    it "returns 404 when the hotel is not found" do
+      admin = create(:staff, :admin, hotel: hotel)
+
+      get edit_admin_hotel_path("missing-slug"), headers: auth_header(admin)
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.body).to eq("Not Found")
     end
   end
 
@@ -315,6 +365,17 @@ RSpec.describe "Admin hotels" do
 
       expect(response).to redirect_to(root_path)
     end
+
+    it "returns 404 when the hotel is not found" do
+      admin = create(:staff, :admin, hotel: hotel)
+
+      patch admin_hotel_path("missing-slug"),
+            params: { hotel: { name: "Aurora", timezone: "Europe/London" } },
+            headers: auth_header(admin)
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.body).to eq("Not Found")
+    end
   end
 
   describe "DELETE /admin/hotels/:slug" do
@@ -370,6 +431,15 @@ RSpec.describe "Admin hotels" do
       delete admin_hotel_path(hotel), headers: auth_header(staff)
 
       expect(response).to redirect_to(root_path)
+    end
+
+    it "returns 404 when the hotel is not found" do
+      expect do
+        delete admin_hotel_path("missing-slug"), headers: auth_header(admin)
+      end.not_to change(Hotel, :count)
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.body).to eq("Not Found")
     end
   end
 

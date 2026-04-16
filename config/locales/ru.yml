@@ -2,16 +2,18 @@ ru:
   admin:
     hotel_staff:
       index:
-        empty: "Для этого отеля сотрудники не найдены."
+        empty: "У этого отеля нет сотрудников."
     hotel_tickets:
       index:
-        empty: "Для этого отеля заявки не найдены."
+        empty: "У этого отеля нет тикетов."
         unassigned: "Не назначен"
     hotels:
       index:
-        empty: "Отели не найдены."
+        empty: "Отели не добавлены."
         edit_link: "Редактировать"
         delete_link: "Удалить"
       show:
-        staff_link: "Сотрудники отеля"
-        tickets_link: "Заявки отеля"
+        staff_link: "Сотрудники"
+        tickets_link: "Тикеты"
+        edit_link: "Редактировать"
+        delete_link: "Удалить"

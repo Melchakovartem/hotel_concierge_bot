@@ -32,16 +32,18 @@ en:
   admin:
     hotel_staff:
       index:
-        empty: "No staff found for this hotel."
+        empty: "No staff members for this hotel."
     hotel_tickets:
       index:
-        empty: "No tickets found for this hotel."
+        empty: "No tickets for this hotel."
         unassigned: "Unassigned"
     hotels:
       index:
-        empty: "No hotels found."
+        empty: "No hotels yet."
         edit_link: "Edit"
         delete_link: "Delete"
       show:
-        staff_link: "Hotel Staff"
-        tickets_link: "Hotel Tickets"
+        staff_link: "Staff"
+        tickets_link: "Tickets"
+        edit_link: "Edit"
+        delete_link: "Delete"

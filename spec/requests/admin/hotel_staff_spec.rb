@@ -31,7 +31,7 @@ RSpec.describe "Admin hotel staff" do
       get admin_hotel_staff_index_path(hotel_without_staff), headers: auth_header(guest_admin)
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("No staff found for this hotel.")
+      expect(response.body).to include("No staff members for this hotel.")
     end
 
     it "redirects manager to root" do

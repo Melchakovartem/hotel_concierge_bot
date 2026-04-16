@@ -78,7 +78,7 @@ RSpec.describe "Admin hotel tickets" do
       get admin_hotel_tickets_path(empty_hotel), headers: auth_header(guest_admin)
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("No tickets found for this hotel.")
+      expect(response.body).to include("No tickets for this hotel.")
     end
 
     it "redirects manager to root" do

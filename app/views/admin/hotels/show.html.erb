@@ -12,6 +12,11 @@
 </dl>
 
 <p>
-  <%= link_to t("admin.hotels.show.staff_link"), admin_hotel_staff_index_path(@hotel) %>
-  <%= link_to t("admin.hotels.show.tickets_link"), admin_hotel_tickets_path(@hotel) %>
+  <%= link_to t(".staff_link"), admin_hotel_staff_index_path(@hotel) %>
+  <%= link_to t(".tickets_link"), admin_hotel_tickets_path(@hotel) %>
+  <%= link_to t(".edit_link"), edit_admin_hotel_path(@hotel) %>
+  <%= button_to t(".delete_link"),
+                admin_hotel_path(@hotel),
+                method: :delete,
+                form: { data: { turbo_confirm: "Are you sure?" } } %>
 </p>
