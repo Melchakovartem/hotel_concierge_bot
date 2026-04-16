@@ -1,22 +1,7 @@
-<h1>New Hotel</h1>
+<h1><%= t(".title") %></h1>
 
-<%= render "shared/errors", object: @hotel %>
-
-<%= form_with model: [:admin, @hotel], url: admin_hotels_path do |form| %>
-  <div>
-    <%= form.label :name %>
-    <%= form.text_field :name %>
-  </div>
-
-  <div>
-    <%= form.label :timezone %>
-    <%= form.time_zone_select :timezone,
-                              ActiveSupport::TimeZone.all,
-                              { include_blank: "Select timezone" },
-                              { class: "form-control" } %>
-  </div>
-
-  <div>
-    <%= form.submit "Create Hotel" %>
-  </div>
-<% end %>
+<%= render "form",
+           hotel: @hotel,
+           url: admin_hotels_path,
+           form_method: :post,
+           submit_text: t(".submit") %>

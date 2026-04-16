@@ -17,7 +17,7 @@ module Admin
       @hotel = result.result
 
       if result.success?
-        redirect_to admin_hotels_path, notice: "Hotel was successfully created."
+        redirect_to admin_hotels_path, notice: t("admin.hotels.create.success")
       else
         render :new, status: :unprocessable_entity
       end
@@ -30,26 +30,26 @@ module Admin
       @hotel = result.result
 
       if result.success?
-        redirect_to admin_hotels_path, notice: "Hotel was successfully updated."
+        redirect_to admin_hotels_path, notice: t("admin.hotels.update.success")
       else
         render :edit, status: :unprocessable_entity
       end
     end
 
     def destroy
-      @hotel.destroy!
+      result = Admin::Hotels::DestroyService.call(hotel: @hotel)
 
-      redirect_to admin_hotels_path, notice: "Hotel was successfully deleted."
-    rescue ActiveRecord::DeleteRestrictionError
-      redirect_to admin_hotels_path, alert: "Hotel has associated records and cannot be deleted."
+      if result.success?
+        redirect_to admin_hotels_path, notice: t("admin.hotels.destroy.success")
+      else
+        redirect_to admin_hotels_path, alert: result.messages.to_sentence
+      end
     end
 
     private
 
     def set_hotel
-      @hotel = Hotel.find_by!(slug: params[:slug])
-    rescue ActiveRecord::RecordNotFound
-      render plain: "Not Found", status: :not_found
+      @hotel = find_hotel_by_slug!(:slug)
     end
 
     def hotel_params

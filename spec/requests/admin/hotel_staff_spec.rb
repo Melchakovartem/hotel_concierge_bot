@@ -13,7 +13,7 @@ RSpec.describe "Admin hotel staff" do
     end
 
     it "renders hotel staff for admin role" do
-      staff_member = create(:staff, :manager, hotel: hotel, name: "Alice Manager")
+      create(:staff, :manager, hotel: hotel, name: "Alice Manager")
       create(:staff, hotel: other_hotel, name: "Bob Other")
 
       get admin_hotel_staff_index_path(hotel), headers: auth_header(admin)
@@ -107,10 +107,5 @@ RSpec.describe "Admin hotel staff" do
       expect(response).to have_http_status(:not_found)
       expect(response.body).to eq("Not Found")
     end
-  end
-
-  def auth_header(staff_record)
-    encoded = Base64.strict_encode64("#{staff_record.email}:password")
-    { "Authorization" => "Basic #{encoded}" }
   end
 end

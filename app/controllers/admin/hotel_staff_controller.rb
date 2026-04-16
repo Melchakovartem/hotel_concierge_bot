@@ -8,16 +8,12 @@ module Admin
 
     def show
       @staff_member = @hotel.staff.find(params[:id])
-    rescue ActiveRecord::RecordNotFound
-      render plain: "Not Found", status: :not_found
     end
 
     private
 
     def set_hotel
-      @hotel = Hotel.find_by!(slug: params[:hotel_slug])
-    rescue ActiveRecord::RecordNotFound
-      render plain: "Not Found", status: :not_found
+      @hotel = find_hotel_by_slug!(:hotel_slug)
     end
   end
 end

@@ -1,4 +1,4 @@
-<h1>Staff for <%= @hotel.name %></h1>
+<h1><%= t(".title", hotel_name: @hotel.name) %></h1>
 
 <% if @staff.empty? %>
   <p><%= t("admin.hotel_staff.index.empty") %></p>
@@ -6,9 +6,9 @@
   <table>
     <thead>
       <tr>
-        <th>Name</th>
-        <th>Email</th>
-        <th>Role</th>
+        <th><%= t(".name") %></th>
+        <th><%= t(".email") %></th>
+        <th><%= t(".role") %></th>
       </tr>
     </thead>
     <tbody>

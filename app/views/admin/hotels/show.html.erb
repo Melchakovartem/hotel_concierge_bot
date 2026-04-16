@@ -1,13 +1,13 @@
 <h1><%= @hotel.name %></h1>
 
 <dl>
-  <dt>Name</dt>
+  <dt><%= t(".name") %></dt>
   <dd><%= @hotel.name %></dd>
 
-  <dt>Timezone</dt>
+  <dt><%= t(".timezone") %></dt>
   <dd><%= @hotel.timezone %></dd>
 
-  <dt>Slug</dt>
+  <dt><%= t(".slug") %></dt>
   <dd><%= @hotel.slug %></dd>
 </dl>
 
@@ -18,5 +18,5 @@
   <%= button_to t(".delete_link"),
                 admin_hotel_path(@hotel),
                 method: :delete,
-                form: { data: { turbo_confirm: "Are you sure?" } } %>
+                form: { data: { turbo_confirm: t("admin.confirm_delete") } } %>
 </p>

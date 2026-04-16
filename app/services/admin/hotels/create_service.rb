@@ -16,7 +16,7 @@ module Admin
       private
 
       def generated_slug
-        "#{params[:name].to_s.parameterize}-slug"
+        Admin::Hotels::SlugGenerator.call(name: params[:name])
       end
     end
   end

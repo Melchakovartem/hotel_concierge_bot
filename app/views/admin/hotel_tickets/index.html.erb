@@ -1,4 +1,4 @@
-<h1>Tickets for <%= @hotel.name %></h1>
+<h1><%= t(".title", hotel_name: @hotel.name) %></h1>
 
 <% if @tickets.empty? %>
   <p><%= t("admin.hotel_tickets.index.empty") %></p>
@@ -6,13 +6,13 @@
   <table>
     <thead>
       <tr>
-        <th>Subject</th>
-        <th>Body</th>
-        <th>Status</th>
-        <th>Priority</th>
-        <th>Guest</th>
-        <th>Department</th>
-        <th>Staff</th>
+        <th><%= t(".subject") %></th>
+        <th><%= t(".body") %></th>
+        <th><%= t(".status") %></th>
+        <th><%= t(".priority") %></th>
+        <th><%= t(".guest") %></th>
+        <th><%= t(".department") %></th>
+        <th><%= t(".staff") %></th>
       </tr>
     </thead>
     <tbody>

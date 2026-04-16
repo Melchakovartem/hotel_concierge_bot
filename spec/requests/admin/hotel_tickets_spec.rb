@@ -41,7 +41,13 @@ RSpec.describe "Admin hotel tickets" do
       get admin_hotel_tickets_path(hotel), headers: auth_header(admin)
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("Extra towels", "Please bring extra towels.", "Alice Guest", "Housekeeping", "Assigned Staff")
+      expect(response.body).to include(
+        "Extra towels",
+        "Please bring extra towels.",
+        "Alice Guest",
+        "Housekeeping",
+        "Assigned Staff"
+      )
       expect(response.body).not_to include("Taxi booking")
     end
 
@@ -103,10 +109,5 @@ RSpec.describe "Admin hotel tickets" do
       expect(response).to have_http_status(:not_found)
       expect(response.body).to eq("Not Found")
     end
-  end
-
-  def auth_header(staff_record)
-    encoded = Base64.strict_encode64("#{staff_record.email}:password")
-    { "Authorization" => "Basic #{encoded}" }
   end
 end
