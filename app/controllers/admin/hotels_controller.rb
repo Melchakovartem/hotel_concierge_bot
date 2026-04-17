@@ -3,7 +3,7 @@ module Admin
     before_action :set_hotel, only: %i[show edit update destroy]
 
     def index
-      @hotels = Hotel.order(:name)
+      @hotels = Hotel.order(:name).page(params[:page])
     end
 
     def show; end

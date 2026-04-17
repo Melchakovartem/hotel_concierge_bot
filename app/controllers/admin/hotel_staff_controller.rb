@@ -3,7 +3,7 @@ module Admin
     before_action :set_hotel
 
     def index
-      @staff = @hotel.staff.order(:name)
+      @staff = @hotel.staff.order(:name).page(params[:page])
     end
 
     def show

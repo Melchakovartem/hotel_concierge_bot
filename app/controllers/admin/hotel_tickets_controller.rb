@@ -3,7 +3,7 @@ module Admin
     before_action :set_hotel
 
     def index
-      @tickets = Admin::Hotels::TicketsQuery.call(hotel: @hotel)
+      @tickets = Admin::Hotels::TicketsQuery.call(hotel: @hotel).page(params[:page])
     end
 
     private
