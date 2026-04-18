@@ -25,7 +25,9 @@ Success: request spec проходит сценарий с credentials `manager`
 - Список и просмотр тикетов staff-пользователем для лично назначенных тикетов или тикетов того же department.
 - Действия `start` и `complete` для staff по лично назначенным тикетам.
 - Non-destructive migration для `staffs.department_id`, unique index `staffs.email` и DB check для `staffs.department_id`.
+- Совместимость существующих данных с новым `staffs.department_id`: backfill существующих `staff`-пользователей до добавления DB check constraint.
 - Service/query objects и specs.
+- Поддерживающие изменения factories и seeds, чтобы тестовые и seed-данные соблюдали новые staff-инварианты.
 
 Не входит:
 
@@ -37,11 +39,11 @@ Success: request spec проходит сценарий с credentials `manager`
 - Новые ticket statuses или изменение названий существующих статусов.
 - Изменения публичных контрактов `/admin/**`, кроме сохранения admin-only доступа.
 
-Только 3 области:
+Основные области изменений:
 
 - Routing, controllers, views и layout для operations.
 - Service/query objects для staff/ticket из раздела 6.
-- Инварианты данных staff через migration, model validation и factories.
+- Инварианты данных staff через migration, model validation, factories и seed compatibility.
 
 ## 3. Routes и роли
 
@@ -57,10 +59,10 @@ Operations workflow НЕ ДОЛЖНЫ использовать `/admin/**`.
 | GET | `/operations/tickets/:id` | `operations/tickets#show` | manager, staff |
 | GET | `/operations/tickets/:id/edit` | `operations/tickets#edit` | manager |
 | PATCH | `/operations/tickets/:id` | `operations/tickets#update` | manager |
-| PATCH | `/operations/tickets/:id/start` | `operations/tickets#start` | assigned staff |
-| PATCH | `/operations/tickets/:id/complete` | `operations/tickets#complete` | assigned staff |
+| PATCH | `/operations/tickets/:id/start` | `operations/tickets#start` | staff |
+| PATCH | `/operations/tickets/:id/complete` | `operations/tickets#complete` | staff |
 
-Views: layout содержит tickets-nav и staff-nav только для `manager`; ticket table: `id`, `status`, `department`, `staff`; staff table: `name`, `email`, `department`; forms содержат только service whitelisted params; flash: `Staff created` для create, `Ticket updated` для update/start/complete; validation summary выводит `result.messages`.
+Views: layout содержит tickets-nav для `manager` и `staff`, staff-nav только для `manager`; ticket table: `id`, `status`, `department`, `staff`; staff table: `name`, `email`, `department`; forms содержат только service whitelisted params; flash: `Staff created` для create, `Ticket updated` для update/start/complete; validation summary выводит `result.messages`.
 
 ## 4. Auth и состояния
 
@@ -79,6 +81,7 @@ Views: layout содержит tickets-nav и staff-nav только для `man
 - `staff`: разрешены read actions для видимых тикетов; `start` и `complete` только для лично назначенных тикетов.
 - Запрещенные комбинации role/action возвращают `403 Forbidden`.
 - Records вне `@current_staff.hotel` возвращают `404 Not Found`.
+- Staff role может вызвать `start`/`complete` только для видимых тикетов своего отеля; если тикет видим через same-department rule, но не назначен этому staff лично, action возвращает `422 Unprocessable Entity` с validation messages, а не `403`.
 
 Состояния UI и ошибки:
 
@@ -101,6 +104,8 @@ add_check_constraint :staffs,
                      "role != 2 OR department_id IS NOT NULL", # 2 = Staff.roles[:staff]
                      name: "staff_role_requires_department"
 ```
+
+Перед добавлением check constraint migration должна выполнить non-destructive backfill существующих `staffs.role = 2`: назначить department из того же hotel. Если у hotel нет departments, migration может создать fallback department `General` для этого hotel, чтобы сохранить существующих staff users и не нарушить новый invariant.
 
 Изменения моделей:
 
@@ -179,13 +184,13 @@ add_check_constraint :staffs,
 - Staff может завершать только лично назначенные тикеты в статусе `in_progress`.
 - Staff не может завершить тикет напрямую из `new`.
 - Staff не может взять в работу тикет в статусе `done` или `canceled`.
-- Same-department visibility не дает права менять status.
+- Same-department visibility не дает права менять status; попытка `start`/`complete` для видимого same-department, но не лично назначенного тикета возвращает `422` с validation messages.
 - Ни один operations scenario не требует `admin`.
 - Один end-to-end request spec проходит workflow с credentials `manager` и `staff` и проверяет cross-hotel denial.
 
 ## 8. Обязательные тесты
 
-- Request specs для authentication failures и role access matrix.
+- Request specs для authentication failures и role access matrix, включая representative `admin` denial для `/operations/**`.
 - Regression request spec: `/admin/**` остается admin-only.
 - Service specs для staff create, duplicate email и cross-hotel department denial.
 - Request specs для staff create, validation failure, staff-management denial для staff и cross-hotel department denial.
@@ -194,7 +199,7 @@ add_check_constraint :staffs,
 - Query specs для manager visibility, staff assigned visibility, staff same-department visibility, unrelated department exclusion и cross-hotel exclusion.
 - Request specs для `staff` role ticket index/show visibility и edit/update denial.
 - Service specs для `new` -> `in_progress`, `in_progress` -> `done`, unassigned ticket denial, same-department unassigned denial и invalid transition denial.
-- Request specs для `start` и `complete` buttons/actions.
+- Request specs для `start` и `complete` buttons/actions, включая same-department unassigned `422`, unrelated same-hotel `404` и representative admin `403`.
 - End-to-end request spec:
   1. В системе существуют hotel, manager, department, guest и тикет в статусе `new`.
   2. Manager создает same-hotel `staff` user с department.

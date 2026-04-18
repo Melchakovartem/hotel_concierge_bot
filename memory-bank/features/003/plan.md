@@ -43,14 +43,17 @@ bin/rails runner 'puts Staff.column_names.include?("department_id") ? Staff.wher
 bin/rails generate migration AddDepartmentToStaffs department:references
 ```
 
+> **Важно:** сгенерированная команда создаёт `null: false` по умолчанию. Необходимо вручную изменить на `null: true` — иначе migration упадёт на существующих rows без department.
+
 Отредактировать migration так, чтобы она выполняла только эти безопасные изменения:
 
 - `add_reference :staffs, :department, null: true, foreign_key: true`
 - `add_index :staffs, :email, unique: true`
-- backfill для существующих `staffs.role = 2`: назначить department из того же hotel до добавления check constraint; использовать первый department по `id`, а если у hotel нет departments, создать для него fallback department `General`
+- backfill для существующих `staffs.role = 2`: назначить department из того же hotel до добавления check constraint; использовать первый department по `id`, а если у hotel нет departments, создать для него fallback department `General` с заполненными `created_at` и `updated_at`
 - `add_check_constraint :staffs, "role != 2 OR department_id IS NOT NULL", name: "staff_role_requires_department"`
 
 Backfill писать внутри migration через SQL/anonymous AR classes, а не через runtime `Staff` model, потому что Step 0.3 позже меняет validations.
+Если используются anonymous AR classes, после `add_reference` явно вызвать `reset_column_information` для staff-класса перед backfill.
 
 **Готово, когда:** migration создана, не удаляет данные, не меняет существующие migration-файлы и применима к базе, где уже есть role `staff` users без department.
 
@@ -66,7 +69,7 @@ bin/rails db:migrate
 
 ### Step 0.3 — Обновить factories для валидных staff users
 
-> Factories обновляются до добавления model validations (Step 0.5), потому что DB check constraint
+> Factories обновляются до добавления model validations (Step 0.6), потому что DB check constraint
 > из Step 0.1 применяется к test DB при первом запуске rspec после миграции. Если factory остается
 > со старым контрактом, существующие тесты упадут сразу после Step 0.2.
 
@@ -155,7 +158,8 @@ namespace :operations do
 end
 ```
 
-**Готово, когда:** `GET /operations` маршрутизируется в `Operations::HomeController#index`, который после authentication делает redirect на `operations_tickets_path`; `/admin/**` routes не требуют изменений.
+**Готово, когда:** `bin/rails routes -g operations` показывает `/operations`, `/operations/staff`, `/operations/tickets`, `/operations/tickets/:id/start` и `/operations/tickets/:id/complete`; `/admin/**` routes не требуют изменений. Controller behavior проверяется после Steps 1.3-1.5.
+Ожидаемые helpers для staff routes из-за `resources :staff`: `operations_staff_index_path` для index/create и `new_operations_staff_path` для new.
 
 ### Step 1.2 — Создать operations layout
 
@@ -185,8 +189,9 @@ Navigation links должны быть обычными server-rendered links.
 - `WWW-Authenticate: Basic realm="Operations"` для отсутствующих, malformed или невалидных credentials
 - сохранение authenticated user в `@current_staff`
 - запрет для `admin` users через `403 Forbidden`
+- `helper_method :current_staff`, чтобы layout и views могли безопасно проверять роль текущего operations user
 - helper/private methods:
-  - `current_staff` или использование `@current_staff` во views/layout
+  - `current_staff`
   - `require_manager!`
   - `require_staff!`
   - `http_unauthorized`
@@ -228,9 +233,12 @@ Navigation links должны быть обычными server-rendered links.
 
 Остальные role/action matrix checks добавить в request specs соответствующих slices:
 
+- Step 3.3: admin получает `403` для representative staff-management routes
 - Step 3.3: manager может открывать staff-management routes, staff получает `403`
+- Step 5.4: admin получает `403` для representative ticket edit/update routes
 - Step 5.4: staff не может открывать manager edit/update routes
 - Step 6.2: staff может открывать ticket index/show routes, когда есть visible ticket setup
+- Step 7.3: admin получает `403` для representative transition routes
 
 **Checkpoint:**
 
@@ -276,6 +284,7 @@ bundle exec rspec spec/requests/operations/authentication_spec.rb spec/requests/
 - отклонять cross-hotel departments
 - возвращать `success(result: staff)` или `failure(error_code:, messages:, result: staff)`
 - не принимать role или hotel из params
+- внутри namespace `Operations::Staff` обращаться к ActiveRecord-модели как `::Staff`, чтобы не спутать ее с модулем `Operations::Staff`
 
 **Создать spec:** `spec/services/operations/staff/create_service_spec.rb`
 
@@ -291,10 +300,12 @@ bundle exec rspec spec/requests/operations/authentication_spec.rb spec/requests/
 - один public method: `call`
 - требовать `ticket.hotel_id == manager.hotel_id`
 - whitelist только `staff_id` и `status`
+- поддерживать partial update: если `staff_id` или `status` отсутствует в params, соответствующий текущий атрибут ticket не меняется
 - разрешать blank `staff_id` для unassign
 - отклонять cross-hotel assignees
 - отклонять assignees, у которых role не `staff`
 - принимать только существующие ticket enum statuses
+- invalid `status` возвращает failure result, а не пробрасывает `ArgumentError` из enum assignment
 - никогда не менять `guest_id`, `hotel_id`, `department_id`, `subject`, `body` или `priority`
 
 **Создать spec:** `spec/services/operations/tickets/manager_update_service_spec.rb`
@@ -351,6 +362,7 @@ Actions:
 - `index`: только manager, список same-hotel staff users с role `staff`, include department, order by name/email
 - `new`: только manager, подготовить unsaved staff object и `@departments = current_hotel.departments.order(:name)`
 - `create`: только manager, вызвать `Operations::Staff::CreateService`; при failure заново подготовить `@departments = current_hotel.departments.order(:name)`
+- если controller/view нужен unsaved staff object, создавать его через `::Staff.new`, потому что `Operations::Staff` уже используется как service namespace
 
 Response behavior:
 
@@ -371,6 +383,7 @@ Response behavior:
 - index table columns: `name`, `email`, `department`
 - empty state: `No staff found`
 - form fields только для whitelisted params: `name`, `email`, `password`, `password_confirmation`, `department_id`
+- form отправляется на `operations_staff_index_path`
 - department select содержит только departments из manager hotel
 - validation summary выводит `result.messages`
 - не выводить fields для role или hotel
@@ -387,6 +400,7 @@ Response behavior:
 - create success redirect на `/operations/staff` и flash `Staff created`
 - validation failure возвращает `422`
 - cross-hotel department denial возвращает `422`
+- admin user получает `403` для representative index/new/create requests
 - staff user получает `403` для index/new/create
 - params не могут выставить `role` или `hotel_id`
 
@@ -413,7 +427,7 @@ Controller behavior:
 
 - использовать `Operations::Tickets::VisibleTicketsQuery` для `index`
 - scope `show` lookup через `current_hotel.tickets`
-- для staff `show` требовать, чтобы ticket присутствовал в visible tickets query
+- на этом slice разрешить `index`/`show` только manager через `require_manager!`; staff read access подключается отдельно в Layer 6
 - cross-hotel records возвращают `404`
 - запрещенные role/action combinations возвращают `403`
 
@@ -429,7 +443,7 @@ Index requirements:
 - table columns: `id`, `status`, `department`, `staff`
 - empty state: `No tickets found`
 - manager rows link на show и могут показывать edit link только после подключения edit route в Layer 5
-- staff rows link на show
+- view должен оставаться role-neutral для будущего staff read access: rows link на show без manager-only assumptions
 
 Show requirements:
 
@@ -510,6 +524,7 @@ Response behavior:
 - status update
 - validation failure `422`
 - cross-hotel assignee denial
+- admin user получает `403` для representative edit/update requests
 - staff не может открыть edit/update
 - disallowed attributes не меняются
 
@@ -527,14 +542,15 @@ bundle exec rspec spec/services/operations/tickets/manager_update_service_spec.r
 
 **Файл:** `app/controllers/operations/tickets_controller.rb`
 
-Убедиться, что staff users:
+Изменить authorization для `index` и `show`, не меняя manager-only `edit/update`:
 
-- могут открыть `index`
-- могут открыть `show` для personally assigned tickets
-- могут открыть `show` для same-department tickets
-- получают `404` для same-hotel tickets вне personal assignment и department
-- получают `404` для cross-hotel tickets
-- не могут открыть `edit` или `update`
+- `index` разрешен manager и staff; для обоих ролей tickets выбираются через `Operations::Tickets::VisibleTicketsQuery`
+- `show` разрешен manager и staff
+- manager `show` продолжает искать ticket через `current_hotel.tickets`
+- staff `show` сначала ищет ticket через `current_hotel.tickets`, затем проверяет, что ticket id присутствует в `Operations::Tickets::VisibleTicketsQuery.call(staff: current_staff)`; иначе возвращает `404`
+- `edit` и `update` остаются manager-only и для staff возвращают `403`
+
+**Готово, когда:** staff users могут читать personally assigned и same-department tickets, но не могут читать unrelated same-hotel или cross-hotel tickets.
 
 ### Step 6.2 — Добавить staff ticket read request specs
 
@@ -575,7 +591,8 @@ Response behavior:
 - success redirect на `/operations/tickets/:id` с flash `Ticket updated`
 - service validation failure возвращает `422` и render `show`
 - при failure перед render `show` выставить `@ticket` и `@result`, чтобы `app/views/operations/tickets/show.html.erb` мог вывести validation summary
-- same-department visibility без personal assignment возвращает `422` из service, если action попытались выполнить на visible ticket
+- перед вызовом service скрывать от staff tickets, которых нет в visible tickets query, через `404`
+- same-department visibility без personal assignment возвращает `422` из service, потому что ticket видим, но workflow action запрещен без personal assignment
 - cross-hotel ticket lookup возвращает `404`
 - manager при попытке start/complete получает `403`
 
@@ -601,10 +618,11 @@ Response behavior:
 - assigned staff completes `in_progress` ticket
 - direct complete из `new` возвращает `422`
 - starting `done` или `canceled` возвращает `422`
-- unassigned ticket denial
-- same-department unassigned ticket denial
+- same-department unassigned ticket возвращает `422`
+- unrelated same-hotel ticket возвращает `404`
 - cross-hotel ticket возвращает `404`
 - manager start/complete возвращает `403`
+- admin start/complete возвращает `403`
 - success flash равен `Ticket updated`
 
 **Checkpoint:**
