@@ -18,6 +18,23 @@
 
 > Этот слой блокирует все operations slices, потому что staff visibility и staff creation зависят от `staffs.department_id`.
 
+### Step 0.0 — Проверить существующие данные перед constraint-ами
+
+Выполнить preflight в той среде, где будет запускаться migration:
+
+```bash
+bin/rails runner 'puts Staff.group(:email).having("COUNT(*) > 1").count'
+bin/rails runner 'puts Staff.column_names.include?("department_id") ? Staff.where(role: Staff.roles[:staff]).where(department_id: nil).count : Staff.where(role: Staff.roles[:staff]).count'
+```
+
+Проверить:
+
+- нет duplicate `staffs.email`, иначе Step 0.1 упадет на unique index и требуется отдельное решение по данным
+- если `department_id` еще отсутствует, количество существующих rows с role `staff` известно; Step 0.1 должен backfill-ить их до добавления check constraint
+- если migration уже частично применялась, количество `staff` rows без department известно; Step 0.1 должен backfill-ить их до добавления check constraint
+
+**Готово, когда:** понятно, что Step 0.1 не сломается на существующих duplicate emails, а существующие role `staff` rows покрыты migration backfill.
+
 ### Step 0.1 — Добавить non-destructive migration для staff department
 
 Создать новую migration, не изменяя существующие migrations:
@@ -30,9 +47,12 @@ bin/rails generate migration AddDepartmentToStaffs department:references
 
 - `add_reference :staffs, :department, null: true, foreign_key: true`
 - `add_index :staffs, :email, unique: true`
+- backfill для существующих `staffs.role = 2`: назначить department из того же hotel до добавления check constraint; использовать первый department по `id`, а если у hotel нет departments, создать для него fallback department `General`
 - `add_check_constraint :staffs, "role != 2 OR department_id IS NOT NULL", name: "staff_role_requires_department"`
 
-**Готово, когда:** migration создана, не удаляет данные и не меняет существующие migration-файлы.
+Backfill писать внутри migration через SQL/anonymous AR classes, а не через runtime `Staff` model, потому что Step 0.3 позже меняет validations.
+
+**Готово, когда:** migration создана, не удаляет данные, не меняет существующие migration-файлы и применима к базе, где уже есть role `staff` users без department.
 
 ### Step 0.2 — Запустить migration и обновить schema
 
@@ -44,7 +64,50 @@ bin/rails db:migrate
 
 **Готово, когда:** `db/schema.rb` содержит `staffs.department_id`, unique index на `staffs.email`, foreign key на departments и check constraint `staff_role_requires_department`.
 
-### Step 0.3 — Обновить инварианты модели `Staff`
+### Step 0.3 — Обновить factories для валидных staff users
+
+> Factories обновляются до добавления model validations (Step 0.5), потому что DB check constraint
+> из Step 0.1 применяется к test DB при первом запуске rspec после миграции. Если factory остается
+> со старым контрактом, существующие тесты упадут сразу после Step 0.2.
+
+**Файл:** `spec/factories/staffs.rb`
+
+Изменить default factory `:staff` так, чтобы records с ролью `:staff` получали department из того же hotel:
+
+- оставить `association :hotel`
+- добавить conditional department assignment для role `staff`, например через transient/after-build или `department { association(:department, hotel: hotel) if role.to_s == "staff" }`
+- в traits `:admin` и `:manager` явно сбрасывать `department { nil }`, чтобы `create(:staff, :manager)` и `create(:staff, :admin)` проверяли роли без department
+
+**Готово, когда:** `create(:staff)` создает валидного operational staff user, а `create(:staff, :manager)` и `create(:staff, :admin)` остаются валидными.
+
+### Step 0.4 — Обновить ticket factory под новый staff invariant
+
+**Файл:** `spec/factories/tickets.rb`
+
+Проверить и при необходимости изменить `staff` association так, чтобы assigned staff всегда был из того же hotel и department не нарушал новый invariant:
+
+- `staff { association(:staff, hotel: hotel) }` допустим, если `spec/factories/staffs.rb` назначает department из того же hotel
+- не создавать staff без department для default ticket factory
+
+**Готово, когда:** `create(:ticket)` остается валидным после добавления `Staff` validations и DB check constraint.
+
+### Step 0.5 — Обновить seed data под новый staff invariant
+
+**Файл:** `db/seeds.rb`
+
+Изменить seed для `staff@grandpalace.com` так, чтобы seeded staff user с role `:staff` всегда получал department из своего hotel, например `housekeeping_gp`.
+
+Сделать seed idempotent для уже существующей записи:
+
+- использовать переменную для seeded staff user вместо fire-and-forget `Staff.find_or_create_by!`
+- выставлять `department = housekeeping_gp`, если department отсутствует
+- сохранять запись после assignment
+
+Не назначать department seeded `admin` или `manager` users.
+
+**Готово, когда:** `bin/rails db:seed` проходит на fresh DB после Step 0.6 validations и не оставляет seeded role `staff` без department.
+
+### Step 0.6 — Обновить инварианты модели `Staff`
 
 **Файл:** `app/models/staff.rb`
 
@@ -60,34 +123,13 @@ bin/rails db:migrate
 
 **Готово, когда:** validations модели выражают только инварианты из section 5 spec.
 
-### Step 0.4 — Обновить factories для валидных staff users
-
-**Файл:** `spec/factories/staffs.rb`
-
-Изменить default factory `:staff` так, чтобы records с ролью `:staff` получали department из того же hotel:
-
-- оставить `association :hotel`
-- добавить `department { association :department, hotel: hotel }`
-- сохранить traits `:admin` и `:manager` валидными без department, если department не передан явно
-
-**Готово, когда:** `create(:staff)` создает валидного operational staff user, а `create(:staff, :manager)` и `create(:staff, :admin)` остаются валидными.
-
-### Step 0.5 — Добавить покрытие инвариантов через service specs
-
-Не писать model specs.
-
-Добавить проверки в первые service specs, которые создают или назначают staff:
-
-- роль `staff` требует department
-- роли `manager` и `admin` не требуют department
-- department должен принадлежать тому же hotel
-- duplicate email корректно возвращает failed service result
-
-**Checkpoint:**
+### Checkpoint Layer 0
 
 ```bash
-bundle exec rspec spec/factories spec/services
+bundle exec rspec
 ```
+
+Все существующие тесты должны проходить. Если есть failures — исправить до перехода к Layer 1.
 
 ---
 
@@ -101,7 +143,7 @@ bundle exec rspec spec/factories spec/services
 
 ```ruby
 namespace :operations do
-  root "tickets#index"
+  root "home#index"
 
   resources :staff, only: %i[index new create]
   resources :tickets, only: %i[index show edit update] do
@@ -113,7 +155,7 @@ namespace :operations do
 end
 ```
 
-**Готово, когда:** `GET /operations` ведет на operations tickets index, а `/admin/**` routes не требуют изменений.
+**Готово, когда:** `GET /operations` маршрутизируется в `Operations::HomeController#index`, который после authentication делает redirect на `operations_tickets_path`; `/admin/**` routes не требуют изменений.
 
 ### Step 1.2 — Создать operations layout
 
@@ -144,31 +186,51 @@ Navigation links должны быть обычными server-rendered links.
 - сохранение authenticated user в `@current_staff`
 - запрет для `admin` users через `403 Forbidden`
 - helper/private methods:
+  - `current_staff` или использование `@current_staff` во views/layout
   - `require_manager!`
   - `require_staff!`
+  - `http_unauthorized`
   - `forbidden`
   - `not_found`
   - `current_hotel`
 
 **Готово, когда:** missing/invalid credentials возвращают `401` с operations realm, admin credentials возвращают `403`, а manager/staff credentials проходят authentication.
 
-### Step 1.4 — Добавить request specs для authentication и role matrix
+### Step 1.4 — Создать authenticated operations root redirect
+
+**Создать файл:** `app/controllers/operations/home_controller.rb`
+
+Реализовать:
+
+- `Operations::HomeController` наследуется от `Operations::BaseController`
+- action `index` делает `redirect_to operations_tickets_path`
+
+Не использовать route-level `redirect`, потому что он обойдет `Operations::BaseController` и не проверит Basic Auth.
+
+**Готово, когда:** authenticated manager/staff запрос к `/operations` получает redirect на `/operations/tickets`, no credentials получают `401`, admin получает `403`.
+
+### Step 1.5 — Добавить request specs для authentication и role matrix
 
 **Создать файлы:**
 
 - `spec/requests/operations/authentication_spec.rb`
 - `spec/requests/operations/access_spec.rb`
 
-Покрыть:
+На этом слое проверить только endpoints, которые уже могут существовать без ticket/staff controllers:
 
-- no credentials на `/operations/tickets` -> `401`
+- no credentials на `/operations` -> `401`
 - invalid credentials -> `401`
 - malformed Basic header -> `401`
 - `WWW-Authenticate` header равен `Basic realm="Operations"`
-- admin credentials на `/operations/tickets` -> `403`
-- manager может открывать manager routes
-- staff не может открывать staff-management routes и manager edit/update routes
-- staff может открывать ticket index/show routes, когда есть visible ticket setup
+- admin credentials на `/operations` -> `403`
+- manager credentials на `/operations` -> redirect на `/operations/tickets`
+- staff credentials на `/operations` -> redirect на `/operations/tickets`
+
+Остальные role/action matrix checks добавить в request specs соответствующих slices:
+
+- Step 3.3: manager может открывать staff-management routes, staff получает `403`
+- Step 5.4: staff не может открывать manager edit/update routes
+- Step 6.2: staff может открывать ticket index/show routes, когда есть visible ticket setup
 
 **Checkpoint:**
 
@@ -217,7 +279,7 @@ bundle exec rspec spec/requests/operations/authentication_spec.rb spec/requests/
 
 **Создать spec:** `spec/services/operations/staff/create_service_spec.rb`
 
-Покрыть успешное создание, forced hotel, forced role, duplicate email, cross-hotel department denial, missing department и ignored unpermitted attributes.
+Покрыть успешное создание, forced hotel, forced role, duplicate email, cross-hotel department denial, missing department, что role `staff` требует department, и ignored unpermitted attributes.
 
 ### Step 2.3 — Создать `Operations::Tickets::ManagerUpdateService`
 
@@ -237,7 +299,7 @@ bundle exec rspec spec/requests/operations/authentication_spec.rb spec/requests/
 
 **Создать spec:** `spec/services/operations/tickets/manager_update_service_spec.rb`
 
-Покрыть assignment, reassignment, unassignment, status update, cross-hotel staff denial, non-staff assignee denial, invalid status, cross-hotel ticket denial и ignored disallowed attributes.
+Покрыть assignment, reassignment, unassignment, status update, cross-hotel staff denial, non-staff assignee denial, что assignee должен быть role `staff` и принадлежать тому же hotel, invalid status, cross-hotel ticket denial и ignored disallowed attributes.
 
 ### Step 2.4 — Создать staff transition services
 
@@ -287,8 +349,8 @@ bundle exec rspec spec/services/operations
 Actions:
 
 - `index`: только manager, список same-hotel staff users с role `staff`, include department, order by name/email
-- `new`: только manager, подготовить unsaved staff object
-- `create`: только manager, вызвать `Operations::Staff::CreateService`
+- `new`: только manager, подготовить unsaved staff object и `@departments = current_hotel.departments.order(:name)`
+- `create`: только manager, вызвать `Operations::Staff::CreateService`; при failure заново подготовить `@departments = current_hotel.departments.order(:name)`
 
 Response behavior:
 
@@ -373,7 +435,7 @@ Show requirements:
 
 - выводить ticket id, status, department, staff, subject, body, priority
 - выводить manager edit link только для manager после подключения edit route
-- выводить start/complete buttons только для personally assigned staff, когда action валиден
+- не выводить start/complete buttons до Step 7.2, потому что transition actions еще не реализованы
 
 ### Step 4.3 — Добавить manager ticket read request specs
 
@@ -403,8 +465,8 @@ bundle exec rspec spec/services/operations/tickets/visible_tickets_query_spec.rb
 
 Добавить:
 
-- `edit`: только manager, только same-hotel ticket
-- `update`: только manager, только same-hotel ticket, вызвать `Operations::Tickets::ManagerUpdateService`
+- `edit`: только manager, только same-hotel ticket, подготовить `@assignees = current_hotel.staff.where(role: :staff).includes(:department).order(:name, :email)` и `@statuses = Ticket.statuses.keys`
+- `update`: только manager, только same-hotel ticket, вызвать `Operations::Tickets::ManagerUpdateService`; при failure заново подготовить `@assignees` и `@statuses`
 
 Response behavior:
 
@@ -512,6 +574,7 @@ Response behavior:
 
 - success redirect на `/operations/tickets/:id` с flash `Ticket updated`
 - service validation failure возвращает `422` и render `show`
+- при failure перед render `show` выставить `@ticket` и `@result`, чтобы `app/views/operations/tickets/show.html.erb` мог вывести validation summary
 - same-department visibility без personal assignment возвращает `422` из service, если action попытались выполнить на visible ticket
 - cross-hotel ticket lookup возвращает `404`
 - manager при попытке start/complete получает `403`
@@ -524,12 +587,13 @@ Response behavior:
 
 - `Start` button только когда current user staff, ticket personally assigned и status `new`
 - `Complete` button только когда current user staff, ticket personally assigned и status `in_progress`
+- validation summary выводит `@result.messages`, когда transition action рендерит `show` со статусом `422`
 
 Использовать `button_to` с `method: :patch`.
 
 ### Step 7.3 — Добавить transition request specs
 
-**Файл:** `spec/requests/operations/ticket_transitions_spec.rb`
+**Создать файл:** `spec/requests/operations/ticket_transitions_spec.rb`
 
 Покрыть:
 
@@ -560,10 +624,11 @@ bundle exec rspec spec/services/operations/tickets/start_service_spec.rb spec/se
 Проверить, что `/admin/**` остается admin-only после operations changes:
 
 - admin может открыть representative admin endpoints
-- manager получает redirect или denial согласно текущему admin behavior
-- staff получает redirect или denial согласно текущему admin behavior
+- manager получает redirect на `root_path` согласно текущему `Admin::BaseController#require_admin!`
+- staff получает redirect на `root_path` согласно текущему `Admin::BaseController#require_admin!`
 - no credentials все еще возвращают `401` с `Basic realm="Admin"`
 - operations auth changes не меняют admin realm
+- existing admin request setup остается валидным после Step 0.3/0.4, то есть staff fixtures создаются с department только там, где это требуется ролью `staff`
 
 **Checkpoint:**
 
