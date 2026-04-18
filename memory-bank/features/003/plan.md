@@ -33,6 +33,8 @@ bin/rails runner 'puts Staff.column_names.include?("department_id") ? Staff.wher
 - если `department_id` еще отсутствует, количество существующих rows с role `staff` известно; Step 0.1 должен backfill-ить их до добавления check constraint
 - если migration уже частично применялась, количество `staff` rows без department известно; Step 0.1 должен backfill-ить их до добавления check constraint
 
+Если duplicate emails найдены, остановить реализацию Layer 0 и не добавлять unique index до отдельного решения по данным. План этой фичи не должен молча выбирать, какую учетную запись сохранять или как объединять пользователей.
+
 **Готово, когда:** понятно, что Step 0.1 не сломается на существующих duplicate emails, а существующие role `staff` rows покрыты migration backfill.
 
 ### Step 0.1 — Добавить non-destructive migration для staff department
@@ -191,15 +193,15 @@ Navigation links должны быть обычными server-rendered links.
 - запрет для `admin` users через `403 Forbidden`
 - `helper_method :current_staff`, чтобы layout и views могли безопасно проверять роль текущего operations user
 - helper/private methods:
-  - `current_staff`
-  - `require_manager!`
-  - `require_staff!`
-  - `http_unauthorized`
-  - `forbidden`
-  - `not_found`
-  - `current_hotel`
+  - `current_staff` — возвращает `@current_staff`
+  - `require_manager!` — разрешает только role `manager`; для `staff` рендерит `403`
+  - `require_staff!` — разрешает только role `staff`; для `manager` рендерит `403`
+  - `http_unauthorized` — выставляет `WWW-Authenticate: Basic realm="Operations"` и рендерит `401`
+  - `forbidden` — рендерит `403 Forbidden`
+  - `not_found` — рендерит `404 Not Found`
+  - `current_hotel` — возвращает `@current_staff.hotel`
 
-**Готово, когда:** missing/invalid credentials возвращают `401` с operations realm, admin credentials возвращают `403`, а manager/staff credentials проходят authentication.
+**Готово, когда:** missing/invalid credentials возвращают `401` с operations realm, admin credentials возвращают `403`, manager credentials проходят authentication, staff credentials проходят authentication; `require_manager!` возвращает `403` для staff, `require_staff!` возвращает `403` для manager.
 
 ### Step 1.4 — Создать authenticated operations root redirect
 
@@ -235,6 +237,7 @@ Navigation links должны быть обычными server-rendered links.
 
 - Step 3.3: admin получает `403` для representative staff-management routes
 - Step 3.3: manager может открывать staff-management routes, staff получает `403`
+- Step 4.3: admin получает `403` для representative ticket read routes
 - Step 5.4: admin получает `403` для representative ticket edit/update routes
 - Step 5.4: staff не может открывать manager edit/update routes
 - Step 6.2: staff может открывать ticket index/show routes, когда есть visible ticket setup
@@ -251,6 +254,19 @@ bundle exec rspec spec/requests/operations/authentication_spec.rb spec/requests/
 ## Layer 2 — База service/query objects
 
 > Service/query objects создаются до подключения controllers, чтобы controllers с первого slice оставались thin.
+
+Все operations command services должны:
+
+- наследоваться от `BaseService`
+- объявлять dependencies как `option`
+- иметь один public instance method `call`
+- возвращать `Result` через `success`/`failure`
+
+Operations query object должен:
+
+- объявлять dependencies как `option` через `extend Dry::Initializer` или наследование от `BaseService`
+- иметь один public instance method `call`
+- возвращать `ActiveRecord::Relation`, а не `Result`
 
 ### Step 2.1 — Создать `Operations::Tickets::VisibleTicketsQuery`
 
@@ -364,6 +380,10 @@ Actions:
 - `create`: только manager, вызвать `Operations::Staff::CreateService`; при failure заново подготовить `@departments = current_hotel.departments.order(:name)`
 - если controller/view нужен unsaved staff object, создавать его через `::Staff.new`, потому что `Operations::Staff` уже используется как service namespace
 
+Authorization order:
+
+- `require_manager!` должен выполняться до query/build/service call, чтобы `staff` и `admin` не могли получить данные staff-management routes
+
 Response behavior:
 
 - successful create redirect на `/operations/staff` с flash `Staff created`
@@ -461,6 +481,7 @@ Show requirements:
 - manager не видит cross-hotel tickets
 - manager может открыть same-hotel ticket show
 - manager opening cross-hotel ticket возвращает `404`
+- admin получает `403` для representative index/show requests
 - index empty state
 
 **Checkpoint:**
@@ -481,6 +502,10 @@ bundle exec rspec spec/services/operations/tickets/visible_tickets_query_spec.rb
 
 - `edit`: только manager, только same-hotel ticket, подготовить `@assignees = current_hotel.staff.where(role: :staff).includes(:department).order(:name, :email)` и `@statuses = Ticket.statuses.keys`
 - `update`: только manager, только same-hotel ticket, вызвать `Operations::Tickets::ManagerUpdateService`; при failure заново подготовить `@assignees` и `@statuses`
+
+Authorization order:
+
+- `require_manager!` должен выполняться до ticket lookup, чтобы `staff` и `admin` получали `403` для manager-only actions независимо от `ticket_id`
 
 Response behavior:
 
@@ -585,6 +610,10 @@ bundle exec rspec spec/services/operations/tickets/visible_tickets_query_spec.rb
 
 - `start`: только staff, same-hotel ticket lookup, вызвать `Operations::Tickets::StartService`
 - `complete`: только staff, same-hotel ticket lookup, вызвать `Operations::Tickets::CompleteService`
+
+Authorization order:
+
+- `require_staff!` должен выполняться до ticket lookup, чтобы `manager` и `admin` получали `403` для transition actions независимо от `ticket_id`
 
 Response behavior:
 
