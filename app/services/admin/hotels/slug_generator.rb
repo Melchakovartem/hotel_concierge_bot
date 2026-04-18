@@ -4,7 +4,7 @@ module Admin
       option :name
 
       def call
-        "#{name.to_s.parameterize}-slug"
+        name.to_s.parameterize
       end
     end
   end

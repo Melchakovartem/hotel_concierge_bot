@@ -7,7 +7,7 @@ RSpec.describe Admin::Hotels::CreateService do
 
       expect(result).to be_success
       expect(result.result).to be_persisted
-      expect(result.result.slug).to eq("grand-palace-slug")
+      expect(result.result.slug).to eq("grand-palace")
     end
 
     it "returns validation errors when the hotel is invalid" do
@@ -29,7 +29,7 @@ RSpec.describe Admin::Hotels::CreateService do
     end
 
     it "returns validation errors when name and generated slug are duplicates" do
-      create(:hotel, name: "Grand Palace", slug: "grand-palace-slug")
+      create(:hotel, name: "Grand Palace", slug: "grand-palace")
 
       result = described_class.call(params: { name: "Grand Palace", timezone: "Europe/Moscow" })
 

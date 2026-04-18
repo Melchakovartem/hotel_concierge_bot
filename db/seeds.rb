@@ -3,12 +3,12 @@
 # The data can then be loaded with the bin/rails db:seed command (or created alongside the database with db:setup).
 
 # Hotels
-grand_palace = Hotel.find_or_create_by!(slug: "grand-palace-slug") do |h|
+grand_palace = Hotel.find_or_create_by!(slug: "grand-palace") do |h|
   h.name = "Grand Palace"
   h.timezone = "Europe/Moscow"
 end
 
-aurora = Hotel.find_or_create_by!(slug: "aurora-slug") do |h|
+aurora = Hotel.find_or_create_by!(slug: "aurora") do |h|
   h.name = "Aurora"
   h.timezone = "Europe/London"
 end

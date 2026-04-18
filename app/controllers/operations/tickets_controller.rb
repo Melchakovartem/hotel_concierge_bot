@@ -69,25 +69,22 @@ module Operations
     end
 
     def handle_update_result(result)
-      @ticket = result.result
-
-      if result.success?
-        redirect_to operations_ticket_path(@ticket), notice: "Ticket updated"
-      else
-        @result = result
-        prepare_ticket_form_options
-        render :edit, status: :unprocessable_entity
-      end
+      handle_result(result, on_failure: :edit) { prepare_ticket_form_options }
     end
 
     def handle_transition_result(result)
+      handle_result(result, on_failure: :show)
+    end
+
+    def handle_result(result, on_failure:)
       @ticket = result.result
 
       if result.success?
         redirect_to operations_ticket_path(@ticket), notice: "Ticket updated"
       else
         @result = result
-        render :show, status: :unprocessable_entity
+        yield if block_given?
+        render on_failure, status: :unprocessable_entity
       end
     end
   end

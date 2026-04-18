@@ -1,7 +1,13 @@
 module Operations
   module Tickets
-    class VisibleTicketsQuery < BaseService
-      option :staff
+    class VisibleTicketsQuery
+      def self.call(staff:)
+        new(staff).call
+      end
+
+      def initialize(staff)
+        @staff = staff
+      end
 
       def call
         return Ticket.none if staff.admin?
@@ -12,6 +18,8 @@ module Operations
       end
 
       private
+
+      attr_reader :staff
 
       def base_scope
         staff.hotel.tickets

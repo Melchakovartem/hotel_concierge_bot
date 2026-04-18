@@ -45,13 +45,7 @@ module Operations
       end
 
       def permitted_params
-        @permitted_params ||= raw_params.slice(*PERMITTED_ATTRIBUTES)
-      end
-
-      def raw_params
-        params_hash = params.respond_to?(:to_unsafe_h) ? params.to_unsafe_h : params.to_h
-
-        params_hash.with_indifferent_access
+        @permitted_params ||= raw_params(params).slice(*PERMITTED_ATTRIBUTES)
       end
 
       def invalid_status?
