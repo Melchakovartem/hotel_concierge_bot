@@ -1,0 +1,624 @@
+# План — Feature 003: staff ticket workflow без admin
+
+**Spec:** memory-bank/features/003/spec.md
+
+## Текущее состояние
+
+- `Admin::BaseController` уже использует HTTP Basic authentication через `Staff` с realm `Admin` и требует роль `admin`.
+- `/admin/**` изолирован в `namespace :admin`; namespace `/operations/**` пока отсутствует.
+- `BaseService` и `Result` уже существуют, их нужно переиспользовать для operations services.
+- `Staff` уже имеет `has_secure_password`, `belongs_to :hotel`, enum ролей `admin: 0, manager: 1, staff: 2` и association назначенных тикетов.
+- `Staff` пока не имеет `department_id`, association с department, uniqueness validation для email и department-инвариантов по роли.
+- `Ticket` уже принадлежит `hotel`, `guest`, `department` и optional `staff`; существующие статусы: `new`, `in_progress`, `done`, `canceled`.
+- Фабрики для hotels, departments, guests, staffs и tickets уже есть, но фабрика `:staff` пока не назначает department.
+
+---
+
+## Layer 0 — Данные и инварианты
+
+> Этот слой блокирует все operations slices, потому что staff visibility и staff creation зависят от `staffs.department_id`.
+
+### Step 0.1 — Добавить non-destructive migration для staff department
+
+Создать новую migration, не изменяя существующие migrations:
+
+```bash
+bin/rails generate migration AddDepartmentToStaffs department:references
+```
+
+Отредактировать migration так, чтобы она выполняла только эти безопасные изменения:
+
+- `add_reference :staffs, :department, null: true, foreign_key: true`
+- `add_index :staffs, :email, unique: true`
+- `add_check_constraint :staffs, "role != 2 OR department_id IS NOT NULL", name: "staff_role_requires_department"`
+
+**Готово, когда:** migration создана, не удаляет данные и не меняет существующие migration-файлы.
+
+### Step 0.2 — Запустить migration и обновить schema
+
+Выполнить:
+
+```bash
+bin/rails db:migrate
+```
+
+**Готово, когда:** `db/schema.rb` содержит `staffs.department_id`, unique index на `staffs.email`, foreign key на departments и check constraint `staff_role_requires_department`.
+
+### Step 0.3 — Обновить инварианты модели `Staff`
+
+**Файл:** `app/models/staff.rb`
+
+Добавить:
+
+- `belongs_to :department, optional: true`
+- validation presence для `name`
+- validation presence и uniqueness для `email`
+- validation presence для `department`, когда `staff?`
+- validation, что `department.hotel_id == hotel_id`, когда department присутствует
+
+Не добавлять workflow/business logic в модель.
+
+**Готово, когда:** validations модели выражают только инварианты из section 5 spec.
+
+### Step 0.4 — Обновить factories для валидных staff users
+
+**Файл:** `spec/factories/staffs.rb`
+
+Изменить default factory `:staff` так, чтобы records с ролью `:staff` получали department из того же hotel:
+
+- оставить `association :hotel`
+- добавить `department { association :department, hotel: hotel }`
+- сохранить traits `:admin` и `:manager` валидными без department, если department не передан явно
+
+**Готово, когда:** `create(:staff)` создает валидного operational staff user, а `create(:staff, :manager)` и `create(:staff, :admin)` остаются валидными.
+
+### Step 0.5 — Добавить покрытие инвариантов через service specs
+
+Не писать model specs.
+
+Добавить проверки в первые service specs, которые создают или назначают staff:
+
+- роль `staff` требует department
+- роли `manager` и `admin` не требуют department
+- department должен принадлежать тому же hotel
+- duplicate email корректно возвращает failed service result
+
+**Checkpoint:**
+
+```bash
+bundle exec rspec spec/factories spec/services
+```
+
+---
+
+## Layer 1 — Operations namespace, authentication и authorization shell
+
+### Step 1.1 — Добавить operations routes
+
+**Файл:** `config/routes.rb`
+
+Добавить новый namespace, не меняя admin routes:
+
+```ruby
+namespace :operations do
+  root "tickets#index"
+
+  resources :staff, only: %i[index new create]
+  resources :tickets, only: %i[index show edit update] do
+    member do
+      patch :start
+      patch :complete
+    end
+  end
+end
+```
+
+**Готово, когда:** `GET /operations` ведет на operations tickets index, а `/admin/**` routes не требуют изменений.
+
+### Step 1.2 — Создать operations layout
+
+**Создать файл:** `app/views/layouts/operations.html.erb`
+
+Обязанности layout:
+
+- выводить flash notice/alert
+- выводить tickets navigation для manager и staff
+- выводить staff navigation только при `@current_staff.manager?`
+- делать `yield` основного контента
+
+Navigation links должны быть обычными server-rendered links.
+
+**Готово, когда:** все operations controllers могут использовать `layout "operations"`.
+
+### Step 1.3 — Создать `Operations::BaseController`
+
+**Создать файл:** `app/controllers/operations/base_controller.rb`
+
+Реализовать:
+
+- `before_action :authenticate_staff!`
+- `layout "operations"`
+- `rescue_from ActiveRecord::RecordNotFound, with: :not_found`
+- HTTP Basic authentication с тем же credential lookup, что в `Admin::BaseController`
+- `WWW-Authenticate: Basic realm="Operations"` для отсутствующих, malformed или невалидных credentials
+- сохранение authenticated user в `@current_staff`
+- запрет для `admin` users через `403 Forbidden`
+- helper/private methods:
+  - `require_manager!`
+  - `require_staff!`
+  - `forbidden`
+  - `not_found`
+  - `current_hotel`
+
+**Готово, когда:** missing/invalid credentials возвращают `401` с operations realm, admin credentials возвращают `403`, а manager/staff credentials проходят authentication.
+
+### Step 1.4 — Добавить request specs для authentication и role matrix
+
+**Создать файлы:**
+
+- `spec/requests/operations/authentication_spec.rb`
+- `spec/requests/operations/access_spec.rb`
+
+Покрыть:
+
+- no credentials на `/operations/tickets` -> `401`
+- invalid credentials -> `401`
+- malformed Basic header -> `401`
+- `WWW-Authenticate` header равен `Basic realm="Operations"`
+- admin credentials на `/operations/tickets` -> `403`
+- manager может открывать manager routes
+- staff не может открывать staff-management routes и manager edit/update routes
+- staff может открывать ticket index/show routes, когда есть visible ticket setup
+
+**Checkpoint:**
+
+```bash
+bundle exec rspec spec/requests/operations/authentication_spec.rb spec/requests/operations/access_spec.rb
+```
+
+---
+
+## Layer 2 — База service/query objects
+
+> Service/query objects создаются до подключения controllers, чтобы controllers с первого slice оставались thin.
+
+### Step 2.1 — Создать `Operations::Tickets::VisibleTicketsQuery`
+
+**Создать файл:** `app/services/operations/tickets/visible_tickets_query.rb`
+
+Контракт:
+
+- option: `staff`
+- один public method: `call`
+- manager: вернуть все tickets для `staff.hotel`
+- staff: вернуть tickets для `staff.hotel`, где `staff_id == staff.id OR department_id == staff.department_id`
+- admin: вернуть `Ticket.none`
+- include associations, нужные views: `department`, `staff`
+- deterministic ordering, предпочтительно newest first
+
+**Создать spec:** `spec/services/operations/tickets/visible_tickets_query_spec.rb`
+
+Покрыть manager visibility, assigned staff visibility, same-department visibility, unrelated department exclusion и cross-hotel exclusion.
+
+### Step 2.2 — Создать `Operations::Staff::CreateService`
+
+**Создать файл:** `app/services/operations/staff/create_service.rb`
+
+Контракт:
+
+- options: `manager`, `params`
+- один public method: `call`
+- whitelist только `name`, `email`, `password`, `password_confirmation`, `department_id`
+- принудительно выставлять `hotel: manager.hotel`
+- принудительно выставлять `role: :staff`
+- отклонять cross-hotel departments
+- возвращать `success(result: staff)` или `failure(error_code:, messages:, result: staff)`
+- не принимать role или hotel из params
+
+**Создать spec:** `spec/services/operations/staff/create_service_spec.rb`
+
+Покрыть успешное создание, forced hotel, forced role, duplicate email, cross-hotel department denial, missing department и ignored unpermitted attributes.
+
+### Step 2.3 — Создать `Operations::Tickets::ManagerUpdateService`
+
+**Создать файл:** `app/services/operations/tickets/manager_update_service.rb`
+
+Контракт:
+
+- options: `manager`, `ticket`, `params`
+- один public method: `call`
+- требовать `ticket.hotel_id == manager.hotel_id`
+- whitelist только `staff_id` и `status`
+- разрешать blank `staff_id` для unassign
+- отклонять cross-hotel assignees
+- отклонять assignees, у которых role не `staff`
+- принимать только существующие ticket enum statuses
+- никогда не менять `guest_id`, `hotel_id`, `department_id`, `subject`, `body` или `priority`
+
+**Создать spec:** `spec/services/operations/tickets/manager_update_service_spec.rb`
+
+Покрыть assignment, reassignment, unassignment, status update, cross-hotel staff denial, non-staff assignee denial, invalid status, cross-hotel ticket denial и ignored disallowed attributes.
+
+### Step 2.4 — Создать staff transition services
+
+**Создать файлы:**
+
+- `app/services/operations/tickets/start_service.rb`
+- `app/services/operations/tickets/complete_service.rb`
+
+Общий контракт:
+
+- options: `staff`, `ticket`
+- один public method: `call`
+- требовать role `staff`
+- требовать same hotel
+- требовать personal assignment
+- возвращать `Result`
+
+`StartService`:
+
+- разрешать только `new` -> `in_progress`
+
+`CompleteService`:
+
+- разрешать только `in_progress` -> `done`
+
+**Создать specs:**
+
+- `spec/services/operations/tickets/start_service_spec.rb`
+- `spec/services/operations/tickets/complete_service_spec.rb`
+
+Покрыть valid transitions, unassigned ticket denial, same-department but unassigned denial, cross-hotel denial, non-staff actor denial и invalid transition denial.
+
+**Checkpoint:**
+
+```bash
+bundle exec rspec spec/services/operations
+```
+
+---
+
+## Layer 3 — Slice 1: Manager создает staff
+
+### Step 3.1 — Создать operations staff controller
+
+**Создать файл:** `app/controllers/operations/staff_controller.rb`
+
+Actions:
+
+- `index`: только manager, список same-hotel staff users с role `staff`, include department, order by name/email
+- `new`: только manager, подготовить unsaved staff object
+- `create`: только manager, вызвать `Operations::Staff::CreateService`
+
+Response behavior:
+
+- successful create redirect на `/operations/staff` с flash `Staff created`
+- validation failure render `new`, status `422`, и expose `@result`
+- staff role получает `403` для всех routes этого controller
+
+### Step 3.2 — Создать staff views
+
+**Создать файлы:**
+
+- `app/views/operations/staff/index.html.erb`
+- `app/views/operations/staff/new.html.erb`
+- `app/views/operations/staff/_form.html.erb`
+
+Требования к views:
+
+- index table columns: `name`, `email`, `department`
+- empty state: `No staff found`
+- form fields только для whitelisted params: `name`, `email`, `password`, `password_confirmation`, `department_id`
+- department select содержит только departments из manager hotel
+- validation summary выводит `result.messages`
+- не выводить fields для role или hotel
+
+### Step 3.3 — Добавить request specs для staff create
+
+**Создать файл:** `spec/requests/operations/staff_spec.rb`
+
+Покрыть:
+
+- manager staff index non-empty и empty states
+- manager new page содержит только same-hotel departments
+- manager создает staff с same-hotel department
+- create success redirect на `/operations/staff` и flash `Staff created`
+- validation failure возвращает `422`
+- cross-hotel department denial возвращает `422`
+- staff user получает `403` для index/new/create
+- params не могут выставить `role` или `hotel_id`
+
+**Checkpoint:**
+
+```bash
+bundle exec rspec spec/services/operations/staff/create_service_spec.rb spec/requests/operations/staff_spec.rb
+```
+
+---
+
+## Layer 4 — Slice 2: Manager смотрит список и карточку tickets
+
+### Step 4.1 — Создать read actions в operations tickets controller
+
+**Создать файл:** `app/controllers/operations/tickets_controller.rb`
+
+Сначала реализовать только:
+
+- `index`
+- `show`
+
+Controller behavior:
+
+- использовать `Operations::Tickets::VisibleTicketsQuery` для `index`
+- scope `show` lookup через `current_hotel.tickets`
+- для staff `show` требовать, чтобы ticket присутствовал в visible tickets query
+- cross-hotel records возвращают `404`
+- запрещенные role/action combinations возвращают `403`
+
+### Step 4.2 — Создать ticket list/show views
+
+**Создать файлы:**
+
+- `app/views/operations/tickets/index.html.erb`
+- `app/views/operations/tickets/show.html.erb`
+
+Index requirements:
+
+- table columns: `id`, `status`, `department`, `staff`
+- empty state: `No tickets found`
+- manager rows link на show и могут показывать edit link только после подключения edit route в Layer 5
+- staff rows link на show
+
+Show requirements:
+
+- выводить ticket id, status, department, staff, subject, body, priority
+- выводить manager edit link только для manager после подключения edit route
+- выводить start/complete buttons только для personally assigned staff, когда action валиден
+
+### Step 4.3 — Добавить manager ticket read request specs
+
+**Создать файл:** `spec/requests/operations/tickets_manager_spec.rb`
+
+Покрыть:
+
+- manager видит все same-hotel tickets
+- manager не видит cross-hotel tickets
+- manager может открыть same-hotel ticket show
+- manager opening cross-hotel ticket возвращает `404`
+- index empty state
+
+**Checkpoint:**
+
+```bash
+bundle exec rspec spec/services/operations/tickets/visible_tickets_query_spec.rb spec/requests/operations/tickets_manager_spec.rb
+```
+
+---
+
+## Layer 5 — Slice 3: Manager назначает и обновляет tickets
+
+### Step 5.1 — Добавить manager edit/update actions
+
+**Файл:** `app/controllers/operations/tickets_controller.rb`
+
+Добавить:
+
+- `edit`: только manager, только same-hotel ticket
+- `update`: только manager, только same-hotel ticket, вызвать `Operations::Tickets::ManagerUpdateService`
+
+Response behavior:
+
+- success redirect на `/operations/tickets/:id` с flash `Ticket updated`
+- validation failure render `edit`, status `422`, и expose `@result`
+- cross-hotel ticket lookup возвращает `404`
+- staff role получает `403`
+
+### Step 5.2 — Создать manager ticket edit view
+
+**Создать файл:** `app/views/operations/tickets/edit.html.erb`
+
+Требования к view:
+
+- fields только для `staff_id` и `status`
+- assignment select содержит только users с `role: :staff` из manager hotel
+- blank staff option разрешает unassignment
+- status select содержит только существующие enum statuses
+- validation summary выводит `result.messages`
+- нет fields для guest, hotel, department, subject, body или priority
+
+### Step 5.3 — Обновить manager controls в ticket index/show
+
+**Файлы:**
+
+- `app/views/operations/tickets/index.html.erb`
+- `app/views/operations/tickets/show.html.erb`
+
+Добавить manager-only edit links после реализации edit/update.
+
+### Step 5.4 — Добавить manager update request specs
+
+**Файл:** `spec/requests/operations/tickets_manager_spec.rb`
+
+Расширить проверками:
+
+- edit page выводит только same-hotel staff assignees
+- assignment
+- reassignment
+- unassignment
+- status update
+- validation failure `422`
+- cross-hotel assignee denial
+- staff не может открыть edit/update
+- disallowed attributes не меняются
+
+**Checkpoint:**
+
+```bash
+bundle exec rspec spec/services/operations/tickets/manager_update_service_spec.rb spec/requests/operations/tickets_manager_spec.rb
+```
+
+---
+
+## Layer 6 — Slice 4: Staff читает видимые tickets
+
+### Step 6.1 — Завершить staff read authorization
+
+**Файл:** `app/controllers/operations/tickets_controller.rb`
+
+Убедиться, что staff users:
+
+- могут открыть `index`
+- могут открыть `show` для personally assigned tickets
+- могут открыть `show` для same-department tickets
+- получают `404` для same-hotel tickets вне personal assignment и department
+- получают `404` для cross-hotel tickets
+- не могут открыть `edit` или `update`
+
+### Step 6.2 — Добавить staff ticket read request specs
+
+**Создать файл:** `spec/requests/operations/tickets_staff_spec.rb`
+
+Покрыть:
+
+- index включает personally assigned ticket
+- index включает same-department ticket
+- index исключает unrelated department ticket
+- index исключает cross-hotel ticket
+- show assigned ticket
+- show same-department ticket
+- show unrelated same-hotel ticket возвращает `404`
+- edit/update возвращают `403`
+
+**Checkpoint:**
+
+```bash
+bundle exec rspec spec/services/operations/tickets/visible_tickets_query_spec.rb spec/requests/operations/tickets_staff_spec.rb
+```
+
+---
+
+## Layer 7 — Slice 5: Staff берет и завершает assigned tickets
+
+### Step 7.1 — Добавить transition actions
+
+**Файл:** `app/controllers/operations/tickets_controller.rb`
+
+Добавить:
+
+- `start`: только staff, same-hotel ticket lookup, вызвать `Operations::Tickets::StartService`
+- `complete`: только staff, same-hotel ticket lookup, вызвать `Operations::Tickets::CompleteService`
+
+Response behavior:
+
+- success redirect на `/operations/tickets/:id` с flash `Ticket updated`
+- service validation failure возвращает `422` и render `show`
+- same-department visibility без personal assignment возвращает `422` из service, если action попытались выполнить на visible ticket
+- cross-hotel ticket lookup возвращает `404`
+- manager при попытке start/complete получает `403`
+
+### Step 7.2 — Добавить transition buttons в show view
+
+**Файл:** `app/views/operations/tickets/show.html.erb`
+
+Выводить:
+
+- `Start` button только когда current user staff, ticket personally assigned и status `new`
+- `Complete` button только когда current user staff, ticket personally assigned и status `in_progress`
+
+Использовать `button_to` с `method: :patch`.
+
+### Step 7.3 — Добавить transition request specs
+
+**Файл:** `spec/requests/operations/ticket_transitions_spec.rb`
+
+Покрыть:
+
+- assigned staff starts `new` ticket
+- assigned staff completes `in_progress` ticket
+- direct complete из `new` возвращает `422`
+- starting `done` или `canceled` возвращает `422`
+- unassigned ticket denial
+- same-department unassigned ticket denial
+- cross-hotel ticket возвращает `404`
+- manager start/complete возвращает `403`
+- success flash равен `Ticket updated`
+
+**Checkpoint:**
+
+```bash
+bundle exec rspec spec/services/operations/tickets/start_service_spec.rb spec/services/operations/tickets/complete_service_spec.rb spec/requests/operations/ticket_transitions_spec.rb
+```
+
+---
+
+## Layer 8 — Regression и end-to-end workflow
+
+### Step 8.1 — Добавить admin regression request spec
+
+**Создать или расширить файл:** `spec/requests/admin/access_spec.rb`
+
+Проверить, что `/admin/**` остается admin-only после operations changes:
+
+- admin может открыть representative admin endpoints
+- manager получает redirect или denial согласно текущему admin behavior
+- staff получает redirect или denial согласно текущему admin behavior
+- no credentials все еще возвращают `401` с `Basic realm="Admin"`
+- operations auth changes не меняют admin realm
+
+**Checkpoint:**
+
+```bash
+bundle exec rspec spec/requests/admin/access_spec.rb
+```
+
+### Step 8.2 — Добавить end-to-end operations request spec
+
+**Создать файл:** `spec/requests/operations/staff_ticket_workflow_spec.rb`
+
+Сценарий:
+
+1. Создать hotel, manager, department, guest и ticket в статусе `new`.
+2. Аутентифицироваться как manager, никогда как admin.
+3. Manager создает same-hotel staff user с department.
+4. Manager назначает ticket этому staff user.
+5. Аутентифицироваться как staff.
+6. Staff видит ticket в `/operations/tickets`.
+7. Staff переводит ticket в работу.
+8. Staff завершает ticket.
+9. После reload ticket status равен `done`.
+10. Manager из другого hotel получает `404` для ticket.
+11. Staff из другого hotel получает `404` для ticket.
+
+**Готово, когда:** полный workflow проходит без использования admin credentials.
+
+### Step 8.3 — Полная acceptance-проверка
+
+Запустить:
+
+```bash
+bundle exec rspec
+bundle exec rubocop
+```
+
+Если RuboCop показывает pre-existing unrelated offenses, зафиксировать их отдельно и оставить feature changes чистыми.
+
+---
+
+## Рекомендуемый порядок реализации для агентов
+
+1. Data agent: только Layer 0.
+2. Auth/shell agent: только Layer 1 после Layer 0.
+3. Services agent: только Layer 2 после Layer 0.
+4. Staff management agent: Layer 3 после Layers 1-2.
+5. Manager tickets agent: Layers 4-5 после Layers 1-2.
+6. Staff tickets agent: Layers 6-7 после Layers 4-5.
+7. Acceptance agent: Layer 8 после всех vertical slices.
+
+Не редактировать параллельно один и тот же controller/views без явного разделения ownership: `Operations::TicketsController` и ticket views затрагиваются несколькими slices.
+
+## Финальный checkpoint
+
+```bash
+bundle exec rspec
+bundle exec rubocop
+```
