@@ -3,12 +3,12 @@
 # The data can then be loaded with the bin/rails db:seed command (or created alongside the database with db:setup).
 
 # Hotels
-grand_palace = Hotel.find_or_create_by!(slug: "grand-palace-slug") do |h|
+grand_palace = Hotel.find_or_create_by!(slug: "grand-palace") do |h|
   h.name = "Grand Palace"
   h.timezone = "Europe/Moscow"
 end
 
-aurora = Hotel.find_or_create_by!(slug: "aurora-slug") do |h|
+aurora = Hotel.find_or_create_by!(slug: "aurora") do |h|
   h.name = "Aurora"
   h.timezone = "Europe/London"
 end
@@ -36,12 +36,15 @@ Staff.find_or_create_by!(email: "manager@grandpalace.com") do |s|
   s.password = "password"
 end
 
-Staff.find_or_create_by!(email: "staff@grandpalace.com") do |s|
+grand_palace_staff = Staff.find_or_create_by!(email: "staff@grandpalace.com") do |s|
   s.hotel    = grand_palace
   s.name     = "Carol Staff"
   s.role     = :staff
   s.password = "password"
+  s.department = housekeeping_gp
 end
+grand_palace_staff.department ||= housekeeping_gp
+grand_palace_staff.save!
 
 Staff.find_or_create_by!(email: "admin@aurora.com") do |s|
   s.hotel    = aurora

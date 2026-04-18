@@ -190,7 +190,7 @@ RSpec.describe "Admin hotels" do
 
       expect(response).to redirect_to(admin_hotels_path)
       expect(flash[:notice]).to eq("Hotel was successfully created.")
-      expect(created_hotel.slug).to eq("aurora-palace-slug")
+      expect(created_hotel.slug).to eq("aurora-palace")
     end
 
     it "renders errors when the hotel is invalid" do
@@ -234,7 +234,7 @@ RSpec.describe "Admin hotels" do
 
     it "renders errors when name and generated slug are duplicates" do
       admin = create(:staff, :admin, hotel: hotel)
-      existing_hotel = create(:hotel, name: "Duplicate Hotel", slug: "duplicate-hotel-slug")
+      existing_hotel = create(:hotel, name: "Duplicate Hotel", slug: "duplicate-hotel")
 
       expect do
         post admin_hotels_path,
