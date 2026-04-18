@@ -3,10 +3,11 @@ module Operations
     before_action :require_manager!, only: %i[edit update]
     before_action :require_staff!, only: %i[start complete]
     before_action :set_ticket, only: %i[show edit update start complete]
-    before_action :ensure_ticket_visible!, only: %i[show start complete]
 
     def index
       @tickets = Operations::Tickets::VisibleTicketsQuery.call(staff: current_staff)
+                                                        .page(params[:page])
+                                                        .load
     end
 
     def show; end
@@ -36,26 +37,33 @@ module Operations
     private
 
     def set_ticket
-      @ticket = current_hotel.tickets
-                             .includes(:department, :staff)
-                             .find(params[:id])
-    end
-
-    def ensure_ticket_visible!
-      return if current_staff.manager?
-
-      visible = Operations::Tickets::VisibleTicketsQuery.call(staff: current_staff)
-                                                        .where(id: @ticket.id)
-                                                        .exists?
-      not_found unless visible
+      @ticket = ticket_lookup_scope
+                .preload(*ticket_associations)
+                .find(params[:id])
     end
 
     def prepare_ticket_form_options
       @assignees = current_hotel.staff
                                 .where(role: :staff)
-                                .includes(:department)
                                 .order(:name, :email)
+                                .load
       @statuses = Ticket.statuses.keys
+    end
+
+    def ticket_lookup_scope
+      return current_hotel.tickets if current_staff.manager?
+
+      Operations::Tickets::VisibleTicketsQuery.call(
+        staff: current_staff,
+        preload_associations: false,
+        ordered: false
+      )
+    end
+
+    def ticket_associations
+      associations = %i[department staff]
+      associations << :guest if %w[update start complete].include?(action_name)
+      associations
     end
 
     def ticket_params

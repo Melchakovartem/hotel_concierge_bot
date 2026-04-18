@@ -34,7 +34,7 @@ module Operations
     end
 
     def authenticated_staff(email, password)
-      ::Staff.find_by(email: email)&.authenticate(password)
+      ::Staff.includes(:hotel).find_by(email: email)&.authenticate(password)
     end
 
     def require_manager!
@@ -59,7 +59,7 @@ module Operations
     end
 
     def current_hotel
-      @current_staff.hotel
+      @current_hotel ||= @current_staff.hotel
     end
   end
 end

@@ -5,8 +5,10 @@ module Operations
     def index
       @staff_members = current_hotel.staff
                                     .where(role: :staff)
-                                    .includes(:department)
+                                    .preload(:department)
                                     .order(:name, :email)
+                                    .page(params[:page])
+                                    .load
     end
 
     def new
@@ -30,7 +32,7 @@ module Operations
     private
 
     def prepare_departments
-      @departments = current_hotel.departments.order(:name)
+      @departments = current_hotel.departments.order(:name).load
     end
 
     def staff_params

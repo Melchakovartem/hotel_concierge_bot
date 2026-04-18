@@ -1,12 +1,14 @@
 module Operations
   module Tickets
     class VisibleTicketsQuery
-      def self.call(staff:)
-        new(staff).call
+      def self.call(staff:, preload_associations: true, ordered: true)
+        new(staff, preload_associations: preload_associations, ordered: ordered).call
       end
 
-      def initialize(staff)
+      def initialize(staff, preload_associations:, ordered:)
         @staff = staff
+        @preload_associations = preload_associations
+        @ordered = ordered
       end
 
       def call
@@ -19,12 +21,13 @@ module Operations
 
       private
 
-      attr_reader :staff
+      attr_reader :staff, :preload_associations, :ordered
 
       def base_scope
-        staff.hotel.tickets
-             .preload(:department, :staff)
-             .order(created_at: :desc, id: :desc)
+        scope = staff.hotel.tickets
+        scope = scope.preload(:department, :staff) if preload_associations
+        scope = scope.order(created_at: :desc, id: :desc) if ordered
+        scope
       end
     end
   end

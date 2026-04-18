@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_04_18_155420) do
+ActiveRecord::Schema[7.1].define(version: 2026_04_18_170000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -27,6 +27,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_04_18_155420) do
     t.string "name", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["hotel_id", "name"], name: "index_departments_on_hotel_id_and_name"
     t.index ["hotel_id"], name: "index_departments_on_hotel_id"
   end
 
@@ -82,6 +83,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_04_18_155420) do
     t.bigint "department_id"
     t.index ["department_id"], name: "index_staffs_on_department_id"
     t.index ["email"], name: "index_staffs_on_email", unique: true
+    t.index ["hotel_id", "role", "name", "email"], name: "index_staffs_on_hotel_role_name_email"
     t.index ["hotel_id"], name: "index_staffs_on_hotel_id"
     t.check_constraint "role <> 2 OR department_id IS NOT NULL", name: "staff_role_requires_department"
   end
@@ -99,6 +101,9 @@ ActiveRecord::Schema[7.1].define(version: 2026_04_18_155420) do
     t.text "body", default: "", null: false
     t.index ["department_id"], name: "index_tickets_on_department_id"
     t.index ["guest_id"], name: "index_tickets_on_guest_id"
+    t.index ["hotel_id", "created_at", "id"], name: "index_tickets_on_hotel_created_id"
+    t.index ["hotel_id", "department_id", "created_at", "id"], name: "index_tickets_on_hotel_department_created_id"
+    t.index ["hotel_id", "staff_id", "created_at", "id"], name: "index_tickets_on_hotel_staff_created_id"
     t.index ["hotel_id"], name: "index_tickets_on_hotel_id"
     t.index ["staff_id"], name: "index_tickets_on_staff_id"
   end
