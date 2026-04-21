@@ -18,25 +18,40 @@ audience: humans_and_agents
 - Предпочитай минимальную локальную сложность вместо преждевременных абстракций.
 - Generated code, vendored code и миграции подчиняются отдельным правилам, если проект их вводит.
 
-## Tooling Contract
+## Контракт инструментария
 
-Зафиксируй здесь canonical formatting/linting toolchain.
+- линтер/форматтер: `rubocop` (автоисправление: `rubocop -A`)
+- pre-commit хуки: не используются
 
-Пример:
+## Стек
 
-- formatter: `prettier`, `ruff format`, `rubocop -A`, `gofmt`
-- linter: `eslint`, `ruff`, `rubocop`, `golangci-lint`
-- pre-commit hooks: optional, но если они canonical, это должно быть явно сказано
+- **Runtime:** Ruby on Rails 7
+- **База данных:** PostgreSQL
+- **Кэш/Очередь:** Redis
+- **Тестирование:** RSpec, FactoryBot
 
-## Language-Specific Addendum
+## Соглашения по языку
 
-После адаптации добавь реальные правила для языков проекта.
+### Бэкенд (Ruby on Rails)
 
-Пример структуры:
+- Тонкие контроллеры; бизнес-логика — в сервисных объектах (с использованием `dry-initializer`)
+- Один публичный метод на сервис (`call`)
+- Сервисы — в `app/services`, формы — в `app/forms`, презентеры/сериализаторы — в соответствующих директориях
+- Никакой бизнес-логики во вьюхах
+- Придерживаться Rails-конвенций именования классов и файлов
+- Избегать колбэков ActiveRecord (только при крайней необходимости)
+- Валидация — на уровне сервисов; критичные ограничения — на уровне БД (индексы, null constraints, FK)
+- Держать модели тонкими (no fat models)
+- Методы — маленькие и явные; никаких скрытых побочных эффектов
+- Предпочитать PORO сложной логике на AR
+- Весь код, комментарии и коммиты — на английском
 
-- `Backend`: naming, error handling, module layout, typing policy
-- `Frontend`: component boundaries, state management, styling rules
-- `SQL / migrations`: naming, rollback expectations, data migration policy
+### Используемые паттерны
+
+- Service Objects
+- Presenters / Serializers
+- Form Objects
+- Decorators
 
 ## Change Discipline
 

@@ -15,35 +15,17 @@ audience: humans_and_agents
 
 ## Setup
 
-Перечисли минимальную подготовку среды.
-
 ```bash
-# Примеры:
-make setup
-./bin/setup
-npm install
-docker compose up -d
-direnv allow
-asdf install
-uv sync
-bundle install
-pnpm install
+bin/setup
 ```
 
 ## Daily Commands
 
-Зафиксируй canonical локальные команды, которые должен знать агент.
-
 ```bash
-# Примеры:
-make dev
-make test
-make lint
-docker compose up app db
-pnpm dev
-pytest
-bundle exec rspec
-go test ./...
+bin/rails s          # запустить сервер
+bundle exec rspec    # запустить тесты
+bin/rails db:migrate # выполнить миграции
+bin/rails console    # консоль Rails
 ```
 
 ## Browser Testing

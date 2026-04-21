@@ -93,26 +93,13 @@ Canonical lifecycle gates живут в [../flows/feature-flow.md](../flows/feat
 
 Для small features допустимо в одной сессии, но simplify review не пропускается.
 
-## Project-Specific Conventions
+## Соглашения проекта
 
-Ниже должен появиться downstream-specific блок после адаптации шаблона. Зафиксируй:
-
-- куда добавлять новые тесты;
-- какой helper/setup pattern считается canonical;
-- как работать с базой, моками и fixtures;
-- какие команды обязан прогонять агент перед handoff.
-
-Пример:
-
-- новые unit tests живут в `tests/unit/` или `spec/`;
-- integration tests обязаны покрывать changed contract;
-- для дорогого setup использовать shared fixtures или builders;
-- текстовые assertions не дублируют hardcoded UI-копию, если проект уже владеет переводами централизованно.
-
-## Checklist For Template Adoption
-
-- [ ] указаны реальные local test commands
-- [ ] перечислены обязательные CI suites
-- [ ] задокументирован deterministic test data pattern
-- [ ] описаны manual-only exceptions
-- [ ] policy не противоречит [../flows/feature-flow.md](../flows/feature-flow.md)
+- **Фреймворк:** RSpec
+- **Тестовые данные:** FactoryBot (фабрики, не фикстуры)
+- **Локальная команда:** `bundle exec rspec`
+- **Правила:**
+  - Не писать тесты для моделей
+  - Писать юнит-тесты для сервисов и ключевой логики
+  - Писать интеграционные тесты для основных флоу
+  - Использовать FactoryBot для всех тестовых данных
