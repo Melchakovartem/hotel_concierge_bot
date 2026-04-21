@@ -1,5 +1,6 @@
 .obsidian/
 .idea/
+.DS_Store
 
 /.bundle
 /log/*
