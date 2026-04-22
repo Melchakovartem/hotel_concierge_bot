@@ -18,6 +18,34 @@ audience: humans_and_agents
 - Держи в этом каталоге только реальные decision records, а не заметки или черновые исследования.
 - Если ADR пока нет, этот индекс остается пустым и служит ожидаемой точкой размещения для будущих решений.
 
+## When to Create an ADR
+
+Для Hotel Concierge Bot заводи ADR, когда решение влияет на долгоживущую архитектуру, границы ответственности или future change constraints.
+
+ADR нужен для решений про:
+
+- каналы коммуникации между гостями и персоналом;
+- доставку сообщений, retry policy, очереди, Redis и background jobs;
+- модель ролей и доступа для guests, staff и admins;
+- хранение сообщений, истории диалогов, персональных данных и audit trail;
+- интеграции с PMS, CRM, мессенджерами, email или SMS-провайдерами;
+- границы между Rails-приложением, ботом и внешними сервисами;
+- устойчивые архитектурные паттерны: service objects, event-driven flows, state machines, serializers/presenters.
+
+## What Does Not Belong Here
+
+Не заводи ADR для:
+
+- обычного CRUD без архитектурных последствий;
+- локального рефакторинга внутри существующих правил;
+- acceptance criteria или scope конкретной feature;
+- временных research notes, spikes или черновиков;
+- описания текущего поведения системы, если оно принадлежит `features/`, `domain/` или current-state specs.
+
+## Records
+
+No ADRs yet.
+
 ## Naming
 
 - Формат файла: `ADR-XXX-short-decision-name.md`
