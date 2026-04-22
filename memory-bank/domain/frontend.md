@@ -2,7 +2,7 @@
 title: Frontend
 doc_kind: domain
 doc_function: canonical
-purpose: Шаблон описания UI-поверхностей, design system и i18n-слоя. Читать при работе с web, mobile или internal UI.
+purpose: Описание UI-поверхностей, правил компонентов и i18n-слоя. Читать при работе с Rails-интерфейсами персонала, менеджера или встроенным гостевым виджетом.
 derived_from:
   - ../dna/governance.md
 status: active
@@ -11,59 +11,38 @@ audience: humans_and_agents
 
 # Frontend
 
-Этот документ должен описывать реальные UI-поверхности downstream-проекта. Если в системе нет отдельного frontend-слоя, сократи документ до минимально полезного набора правил.
+Проект не имеет отдельного SPA и мобильного приложения. UI-слой — Rails ERB с Hotwire, плюс отдельный встроенный виджет для гостей.
 
 ## UI Surfaces
 
-Опиши основные интерфейсы системы.
+**`guest-interface` — Telegram-бот и встроенный веб-чат.**
+Это не Rails UI. Гость взаимодействует через Telegram (webhook → Sidekiq) или через embedded web-chat widget, встроенный на страницу отеля по QR-коду или ссылке. Виджет — самостоятельная поверхность, не часть Rails admin. Boundary с backend — JSON API или WebSocket для веб-чата.
 
-Пример:
+**`staff-portal` — Rails ERB + Hotwire/Turbo.**
+Интерфейс для сотрудников (горничные, технический персонал, официанты): очередь заявок своего отдела, смена статусов. Real-time обновления очереди — Turbo Streams. Код лежит внутри Rails-приложения в стандартных `app/views/staff/` и соответствующих контроллерах.
 
-- public web;
-- internal backoffice;
-- mobile app;
-- embedded widgets;
-- shared component library.
+**`hotel-admin` — Rails ERB + Hotwire/Turbo.**
+Интерфейс менеджера отеля: управление персоналом и отделами, редактирование базы знаний (FAQ), аналитический дашборд. Код в `app/views/admin/`. Администратор платформы управляет аккаунтами отелей через тот же Rails-интерфейс с отдельными правами.
 
-Для каждой поверхности полезно зафиксировать:
-
-- где лежит код;
-- какой стек используется;
-- где проходит boundary с backend;
-- что считается canonical owner для design decisions.
+Нет мобильного приложения. Нет SPA. Нет отдельной component library.
 
 ## Component And Styling Rules
 
-Опиши проектные правила по UI-компонентам:
-
-- используется ли единая design system;
-- где живут shared components;
-- можно ли создавать ad hoc UI без общего компонента;
-- какой слой владеет токенами темы, spacing, typography и states.
-
-Пример записи:
-
-- новые UI-элементы сначала ищут место в `packages/ui`;
-- локальный CSS допустим только внутри feature boundary;
-- сложная интерактивность требует ADR или явного архитектурного решения.
+- Стек: Rails 7 + Hotwire (Turbo Frames, Turbo Streams) + Stimulus.
+- Новые UI-элементы оформляются как стандартные Rails partials (`app/views/shared/`).
+- Локальные стили допустимы внутри feature boundary; глобальные изменения стилей согласовываются явно.
+- Отдельной design system в v1 нет; консистентность обеспечивается через shared layouts (`app/views/layouts/`) и общие partials.
+- Сложная клиентская интерактивность (не покрываемая Turbo + Stimulus) требует ADR перед реализацией.
 
 ## Interaction Patterns
 
-Опиши здесь canonical pattern для интерактивности: server-rendered UI, SPA, islands, HTMX/Turbo-like подход, native mobile и т.д.
-
-Вместо project-specific выбора можно использовать шаблонную формулировку:
-
-- для новых feature используй текущий основной interactive stack;
-- не смешивай два конкурирующих паттерна без явного основания;
-- если проект живет в переходном состоянии между стеками, зафиксируй migration rule и allowed exceptions.
+- Основной паттерн: server-rendered HTML + Turbo Streams для real-time обновлений (статусы заявок, новые заявки в очереди).
+- Не смешивать Turbo и SPA-подходы (React, Vue и т.д.) без явного ADR.
+- Встроенный веб-чат для гостей — отдельный embedded widget; он не является частью Rails admin и разрабатывается изолированно.
 
 ## Localization
 
-Документируй:
-
-- откуда берутся переводы;
-- как они попадают в UI;
-- где кэшируются или versionируются;
-- как добавлять новые ключи и кто владеет fallback behavior.
-
-Если в проекте есть несколько источников переводов, зафиксируй приоритеты и merge order.
+- Поддерживаемые языки: `ru` (основной), `en`.
+- Переводы: Rails i18n, файлы `config/locales/ru.yml` и `config/locales/en.yml`.
+- Fallback locale: `ru`.
+- Новые ключи добавляются одновременно в оба locale-файла; ключ без перевода в одном из файлов считается ошибкой.
