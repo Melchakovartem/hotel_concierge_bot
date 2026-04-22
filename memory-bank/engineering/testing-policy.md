@@ -2,7 +2,7 @@
 title: Testing Policy
 doc_kind: engineering
 doc_function: canonical
-purpose: Описывает testing policy репозитория: обязательность test case design, требования к automated regression coverage и допустимые manual-only gaps.
+purpose: Testing policy Rails/RSpec проекта: automated regression coverage, contract verification, test levels и manual-only gaps.
 derived_from:
   - ../dna/governance.md
   - ../flows/feature-flow.md
@@ -23,30 +23,69 @@ audience: humans_and_agents
 
 # Testing Policy
 
-## Project Adaptation
+## Project Test Stack
 
-После копирования шаблона заполни project-specific часть testing stack:
-
-- основной test framework;
-- стратегия тестовых данных;
-- canonical local commands;
-- обязательные CI jobs;
-- допустимые manual-only исключения.
-
-Пример формулировок:
-
-- **Framework:** `pytest`, `rspec`, `go test`, `vitest`
-- **Data:** fixtures / factories / builders / seeded test database
-- **Local commands:** `make test`, `npm test`, `bundle exec rspec`
-- **CI jobs:** `unit`, `integration`, `e2e`
+- **Framework:** RSpec
+- **Test data:** FactoryBot
+- **Primary command:** `bundle exec rspec`
+- **Quality check:** `bundle exec rubocop`
+- **Current test surfaces:** service specs, request specs, config specs
+- **Default model-spec rule:** не писать model specs по умолчанию
 
 ## Core Rules
 
 - Любое изменение поведения, которое можно проверить детерминированно, обязано получить automated regression coverage.
-- Любой новый или измененный contract обязан получить contract-level automated verification.
+- Любой новый или изменённый contract обязан получить contract-level automated verification.
 - Любой bugfix обязан добавить regression test на воспроизводимый сценарий.
 - Required automated tests считаются закрывающими риск только если они проходят локально и в CI.
 - Manual-only verify допустим только как явное исключение и не заменяет automated coverage там, где automation реалистична.
+
+## Test Levels
+
+- **Service specs:** бизнес-логика, workflow decisions, validations на уровне use case, query objects, ticket transitions, staff assignment.
+- **Request specs:** routes, controllers, authentication, authorization, role boundaries, redirects/renders, HTTP status codes.
+- **Job specs:** background jobs, retries, idempotency, queue behavior and delivery orchestration, когда появится Sidekiq/background job layer.
+- **Config specs:** runtime configuration that affects behavior, such as Redis client setup.
+- **Integration/system specs:** только если browser-level или multi-surface behavior нельзя проверить через service/request/job specs.
+
+## Model Testing Rule
+
+Не писать model specs по умолчанию.
+
+Models должны оставаться тонкими, но текущие models содержат associations, enums, validations и hotel-boundary invariants. Покрывай эти invariants через service specs и request specs, когда они влияют на поведение.
+
+## Domain-Specific Expectations
+
+Тесты не должны отправлять реальные сообщения гостям, персоналу или внешним системам.
+
+Когда появляется delivery behavior:
+
+- mock external delivery clients или используй fake adapters;
+- проверяй intended delivery request без вызова live APIs;
+- покрывай idempotency для входящей и исходящей обработки сообщений;
+- покрывай duplicate inbound messages и retry-safe behavior;
+- проверяй, что delivery side effects происходят только после authorization и state checks.
+
+Negative cases, которые нужно рассматривать, когда они релевантны:
+
+- unknown guest;
+- closed request/ticket;
+- duplicate message;
+- unavailable staff member;
+- invalid status transition;
+- missing or insufficient access rights;
+- ticket, staff, department или guest из другого hotel.
+
+## Contract Verification
+
+Добавляй или обновляй contract-level tests при изменении:
+
+- public routes или controller behavior;
+- service `Result` shape или error codes;
+- role/access behavior;
+- database constraints, на которые опираются user flows;
+- Redis, Sidekiq/background job behavior;
+- message routing или notification delivery behavior.
 
 ## Ownership Split
 
@@ -63,11 +102,15 @@ Canonical lifecycle gates живут в [../flows/feature-flow.md](../flows/feat
 
 ## Что Считается Sufficient Coverage
 
-- Покрыт основной changed behavior и ближайший regression path.
-- Покрыты новые или измененные contracts, события, schema или integration boundaries.
-- Покрыты критичные failure modes из `FM-*`, bug history или acceptance risks.
-- Покрыты feature-specific negative/edge scenarios, если они меняют verdict.
-- Процент line coverage сам по себе недостаточен: нужен scenario- и contract-level coverage.
+Coverage считается достаточным, когда:
+
+- покрыт основной changed behavior;
+- покрыт ближайший regression path;
+- покрыты новые или изменённые contracts, events, schema или integration boundaries;
+- покрыты critical failure modes и feature-specific negative/edge scenarios;
+- tests проверяют behavior, а не только implementation details.
+
+Процент line coverage сам по себе недостаточен: нужен scenario- и contract-level coverage.
 
 ## Когда Manual-Only Допустим
 
@@ -93,13 +136,9 @@ Canonical lifecycle gates живут в [../flows/feature-flow.md](../flows/feat
 
 Для small features допустимо в одной сессии, но simplify review не пропускается.
 
-## Соглашения проекта
+## Canonical Local Commands
 
-- **Фреймворк:** RSpec
-- **Тестовые данные:** FactoryBot (фабрики, не фикстуры)
-- **Локальная команда:** `bundle exec rspec`
-- **Правила:**
-  - Не писать тесты для моделей
-  - Писать юнит-тесты для сервисов и ключевой логики
-  - Писать интеграционные тесты для основных флоу
-  - Использовать FactoryBot для всех тестовых данных
+```bash
+bundle exec rspec
+bundle exec rubocop
+```

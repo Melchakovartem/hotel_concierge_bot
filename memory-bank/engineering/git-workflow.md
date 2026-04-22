@@ -2,7 +2,7 @@
 title: Git Workflow
 doc_kind: engineering
 doc_function: convention
-purpose: Шаблон git workflow документа. После копирования зафиксируй реальные branch names, commit rules и PR expectations проекта.
+purpose: Git workflow проекта: default branch, issue-linked ветки, commit style, PR expectations и локальные проверки.
 derived_from:
   - ../dna/governance.md
 status: active
@@ -13,27 +13,63 @@ audience: humans_and_agents
 
 ## Default Branch
 
-Явно укажи branch, который считается основным: например `main`, `master` или release branch.
+Default branch: `main`.
+
+Подтверждено через `origin/HEAD -> origin/main`.
+
+## Branches
+
+Фичи создаются через GitHub Issues. Если GitHub предлагает issue-linked branch name, используй его без переименования.
+
+Примеры project-style branch names:
+
+- `1-feature-001-secure-admin-hotel-listing-by-role`
+- `3-feature-002-role-based-authorization-hotel-crud`
+
+Если issue branch не был создан автоматически, fallback-формат:
+
+```text
+<issue-number>-<feature-id-or-type>-<short-slug>
+```
+
+Branch names должны быть на английском.
 
 ## Commits
 
-- Present-tense, concise (`fix: normalize cache key`)
-- Если проект требует issue refs в commit message, зафиксируй это явно
-- Если auto-close keywords допустимы, перечисли их
-- Если squash merge обязателен или запрещен, укажи это здесь
+- Пиши коротко, в present tense / imperative mood.
+- Хорошо: `Add staff ticket workflow`, `Fix ticket transition validation`, `Update engineering docs`.
+- Conventional commits допустимы, но не являются обязательным правилом проекта: commit history не показывает стабильного требования к `feat:`, `fix:`, `docs:`.
+- Не смешивай несвязанные изменения в одном commit.
+- Commit messages должны быть на английском.
 
 ## Pull Requests
 
-- Перед PR должны быть зелёными canonical local checks проекта
-- PR title должен быть коротким и предметным
-- В body полезно фиксировать: что изменено, как проверено, какие риски или manual steps остаются
+Перед PR зафиксируй:
+
+- Что изменено.
+- Как проверено локально.
+- Какие миграции добавлены, если они есть.
+- Есть ли влияние на guest/staff messages или notification delivery.
+- Есть ли влияние на Redis, Sidekiq/background jobs, queues, retries или scheduled behavior.
+- Есть ли изменения auth/security логики, ролей или публичных API-контрактов.
+- Manual steps, rollout notes или risks, если они остаются.
+
+## Canonical Local Checks
+
+Минимум перед PR:
+
+```bash
+bundle exec rspec
+```
+
+Если изменение затрагивает Ruby/Rails код или форматирование:
+
+```bash
+bundle exec rubocop
+```
+
+`bundle exec rubocop -A` разрешён только в рамках текущей задачи, после просмотра diff и без unrelated style churn.
 
 ## Worktrees
 
-Если проект использует worktrees, зафиксируй:
-
-- где они создаются;
-- требуется ли bootstrap script после `git worktree add`;
-- какие каталоги считаются запрещенными для временной работы.
-
-Если worktrees не используются, этот раздел можно удалить при адаптации.
+Git worktrees не используются как обязательная практика проекта. Если для параллельной задачи нужен worktree, сначала согласуй naming/location и bootstrap steps.
