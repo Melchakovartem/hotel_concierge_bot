@@ -33,8 +33,16 @@ audience: humans_and_agents
   **Что:** Мигрированный feature package для защиты `GET /admin/hotels` через Staff-backed Basic Auth и role-based access.
   **Читать, чтобы:** посмотреть canonical `feature.md` и derived `implementation-plan.md` в новом формате feature flow.
 
+- [`FT-002`](FT-002/README.md)
+  **Что:** Мигрированный feature package для admin-only `/admin/**`, slug-based Hotel CRUD и read-only hotel-scoped staff/tickets routes.
+  **Читать, чтобы:** посмотреть canonical `feature.md` и derived `implementation-plan.md` в новом формате feature flow.
+
 ## Legacy Migration Sources
 
 - [`001`](001/)
   **Что:** Исходные `brief.md`, `spec.md` и `plan.md`, из которых мигрирован `FT-001`.
   **Читать, чтобы:** сверить перенос фактов во время миграции; canonical owner для дальнейшей работы — [`FT-001/feature.md`](FT-001/feature.md).
+
+- [`002`](002/)
+  **Что:** Исходные `brief.md`, `spec.md` и `plan.md`, из которых мигрирован `FT-002`.
+  **Читать, чтобы:** сверить перенос фактов во время миграции; canonical owner для дальнейшей работы — [`FT-002/feature.md`](FT-002/feature.md).
