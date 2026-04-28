@@ -6,6 +6,20 @@
 
 Инструкция рассчитана на работу через `CLI`-агента и использует промпты из этой папки.
 
+## Короткая версия
+
+1. Находишься в `master`.
+2. Через `next-feature-brief.md` определяешь следующую фичу по `CURRENT_PHASE.md` и `roadmap.md`.
+3. Сразу создаешь `memory-bank/features/FT-XXX/brief.md`.
+4. Через `review-brief.md` доводишь `brief.md` до состояния без замечаний.
+5. Из `brief.md` через агента создаешь GitHub Issue.
+6. По номеру issue создаешь отдельную ветку.
+7. В ветке через `orient-triage.md` + `spec.md` создаешь `feature.md`.
+8. Через `review-spec.md` доводишь `feature.md` до состояния без замечаний.
+9. Через `plan-implement.md` создаешь `implementation-plan.md`.
+10. Через `review-plan.md` доводишь `implementation-plan.md` до состояния без замечаний.
+11. Только после этого переходишь к реализации.
+
 ## Общий принцип
 
 Не делай все этапы в одной длинной сессии.

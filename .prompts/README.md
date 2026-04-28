@@ -10,6 +10,7 @@
 4. Если задача узкая, используй artifact-specific prompt; если нужен общий вход в работу — flow-specific prompt.
 
 Подробный пошаговый процесс смотри в [`feature-workflow.md`](feature-workflow.md).
+Короткий чеклист этого процесса тоже находится в начале [`feature-workflow.md`](feature-workflow.md).
 
 ## Flow Prompts
 
