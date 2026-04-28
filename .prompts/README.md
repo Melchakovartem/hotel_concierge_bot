@@ -33,6 +33,9 @@
 - [`review-brief.md`](review-brief.md)
   Когда использовать: ревью `Brief` на полноту, однозначность и отсутствие solution bias.
 
+- [`next-feature-brief.md`](next-feature-brief.md)
+  Когда использовать: выбрать следующую фичу по `CURRENT_PHASE.md` и `roadmap.md` и собрать для нее стартовый `Brief`.
+
 - [`review-spec.md`](review-spec.md)
   Когда использовать: ревью `Spec` по критериям `TAUS` и дополнительным structural checks.
 
