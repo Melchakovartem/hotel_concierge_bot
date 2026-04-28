@@ -37,6 +37,10 @@ audience: humans_and_agents
   **Что:** Мигрированный feature package для admin-only `/admin/**`, slug-based Hotel CRUD и read-only hotel-scoped staff/tickets routes.
   **Читать, чтобы:** посмотреть canonical `feature.md` и derived `implementation-plan.md` в новом формате feature flow.
 
+- [`FT-003`](FT-003/README.md)
+  **Что:** Мигрированный feature package для hotel staff ticket workflow без admin: namespace `/operations/**`, HTTP Basic Auth с realm `Operations`, manager staff creation, manager ticket assignment/update и staff ticket transitions (start/complete).
+  **Читать, чтобы:** посмотреть canonical `feature.md` (scope, invariants, authorization matrix, service contracts, acceptance scenarios) и derived `implementation-plan.md` (8 слоёв: данные, auth shell, services, vertical slices) в новом формате feature flow.
+
 ## Legacy Migration Sources
 
 - [`001`](001/)
@@ -46,3 +50,7 @@ audience: humans_and_agents
 - [`002`](002/)
   **Что:** Исходные `brief.md`, `spec.md` и `plan.md`, из которых мигрирован `FT-002`.
   **Читать, чтобы:** сверить перенос фактов во время миграции; canonical owner для дальнейшей работы — [`FT-002/feature.md`](FT-002/feature.md).
+
+- [`003`](003/)
+  **Что:** Исходные `brief.md`, `spec.md` и `plan.md`, из которых мигрирован `FT-003`.
+  **Читать, чтобы:** сверить перенос фактов во время миграции; canonical owner для дальнейшей работы — [`FT-003/feature.md`](FT-003/feature.md).
