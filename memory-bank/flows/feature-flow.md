@@ -11,6 +11,7 @@ canonical_for:
   - feature_document_boundaries
   - feature_template_selection_rules
   - feature_flow_stages
+  - feature_use_case_dependency_rules
   - feature_plan_gate_rules
   - feature_closure_rules
   - feature_identifier_taxonomy
@@ -38,6 +39,7 @@ audience: humans_and_agents
 9. **Связь с task tracker.** При создании feature package агент обязан добавить в исходную задачу или ticket ссылки на `feature.md` и, после появления, на `implementation-plan.md`. Это обеспечивает навигацию из task tracker к спецификации без ручного поиска по репозиторию.
 10. Если фича является частью более крупной инициативы, `feature.md` может зависеть от PRD из `memory-bank/prd/`, но PRD не заменяет сам feature package.
 11. Если фича создает новый устойчивый сценарий проекта или materially changes существующий, соответствующий `UC-*` в `memory-bank/use-cases/` должен быть создан или обновлен до closure.
+12. `UC-*` — это upstream-owner устойчивого продуктового или операционного сценария на уровне проекта. `feature.md` не должен переопределять trigger, preconditions, main flow и postconditions такого сценария, а только фиксирует slice-specific реализацию или изменение.
 
 ## Выбор шаблона `feature.md`
 
@@ -81,6 +83,7 @@ flowchart LR
 - [ ] каждый `REQ-*` прослеживается к ≥ 1 `SC-*` через traceability matrix
 - [ ] секция `Verify` содержит ≥ 1 `CHK-*` и ≥ 1 `EVID-*`
 - [ ] если deliverable нельзя принять без negative/edge coverage → ≥ 1 `NEG-*`
+- [ ] если feature вводит новый устойчивый сценарий или materially changes существующий → соответствующий `UC-*` уже создан / обновлен, либо в `feature.md` явно зафиксировано, почему отдельный use case не нужен
 
 ### Design Ready → Plan Ready
 
@@ -120,11 +123,12 @@ flowchart LR
 2. `Verify` в `feature.md` задает canonical test case inventory delivery-единицы: positive cases через `SC-*`, feature-specific negative coverage через `NEG-*` при необходимости, executable checks через `CHK-*` и evidence через `EVID-*`.
 3. Если feature зависит от ADR, `feature.md` ссылается на соответствующий файл в `memory-bank/adr/` и учитывает его `decision_status`; `proposed` не считается finalized design.
 4. Если feature зависит от канонического use case, `feature.md` ссылается на соответствующий файл в `memory-bank/use-cases/`. Use case остается owner-ом trigger/preconditions/main flow/postconditions на уровне проекта, а `feature.md` фиксирует только slice-specific реализацию.
-5. `implementation-plan.md` остается derived execution-документом: он ссылается на canonical IDs из `feature.md` или ADR, фиксирует test strategy для исполнения, required local/CI suites и approval refs для manual-only gaps и не переопределяет scope, architecture, blockers, acceptance criteria или evidence contract.
-6. Если меняются scope, architecture, acceptance criteria или evidence contract, сначала обновляется `feature.md` или ADR, потом downstream-план.
-7. Если численный target threshold относится только к одной delivery-единице, canonical owner — соответствующий `feature.md`. Поднимать такой KPI в project-level документ можно только после того, как он стал shared upstream fact для нескольких feature.
-8. Хороший `implementation-plan.md` начинается с discovery context: relevant paths, local reference patterns, unresolved questions, test surfaces и execution environment должны быть зафиксированы до sequencing изменений.
-9. Для рискованных, необратимых или внешне-эффективных действий `implementation-plan.md` должен явно описывать human approval gates и не скрывать их внутри prose шага.
+5. Если `feature.md` materially changes устойчивый project-level сценарий, но отдельный `UC-*` не заводится, это должно быть явно обосновано в самом `feature.md` как conscious boundary decision, а не оставлено как implicit omission.
+6. `implementation-plan.md` остается derived execution-документом: он ссылается на canonical IDs из `feature.md`, `ADR` или `UC-*`, фиксирует test strategy для исполнения, required local/CI suites и approval refs для manual-only gaps и не переопределяет scope, architecture, blockers, acceptance criteria или evidence contract.
+7. Если меняются scope, architecture, acceptance criteria, project-level сценарий или evidence contract, сначала обновляется соответствующий upstream-owner (`feature.md`, `ADR` или `UC-*`), потом downstream-план.
+8. Если численный target threshold относится только к одной delivery-единице, canonical owner — соответствующий `feature.md`. Поднимать такой KPI в project-level документ можно только после того, как он стал shared upstream fact для нескольких feature.
+9. Хороший `implementation-plan.md` начинается с discovery context: relevant paths, local reference patterns, unresolved questions, test surfaces и execution environment должны быть зафиксированы до sequencing изменений.
+10. Для рискованных, необратимых или внешне-эффективных действий `implementation-plan.md` должен явно описывать human approval gates и не скрывать их внутри prose шага.
 
 ## Test Ownership Summary
 
@@ -187,7 +191,8 @@ Canonical testing policy живёт в [../engineering/testing-policy.md](../eng
 
 1. Scope в `feature.md` фиксируется через `REQ-*`, non-scope через `NS-*`.
 2. Verify в `feature.md` связывает `REQ-*` с test cases через `Acceptance Scenarios`, feature-specific `NEG-*`, `Traceability matrix`, `Test matrix` и `Evidence contract`.
-3. `implementation-plan.md` ссылается на canonical IDs из `feature.md` в колонках `Implements`, `Verifies` и `Evidence IDs`.
-4. Если sequencing блокируется неизвестностью, план фиксирует её как `OQ-*`, а не прячет в prose.
-5. Если выполнение требует человеческого подтверждения для рискованных действий, план фиксирует это через `AG-*`.
-6. Если ID начинает использоваться как стабильная сущность, его смысл должен быть совместим с этим документом.
+3. Если feature опирается на `UC-*` или `ADR`, traceability в `feature.md` и `implementation-plan.md` не должна им противоречить: use case остается owner-ом project-level flow, ADR — owner-ом архитектурного решения, а feature — owner-ом delivery-scoped реализации.
+4. `implementation-plan.md` ссылается на canonical IDs из `feature.md` в колонках `Implements`, `Verifies` и `Evidence IDs`.
+5. Если sequencing блокируется неизвестностью, план фиксирует её как `OQ-*`, а не прячет в prose.
+6. Если выполнение требует человеческого подтверждения для рискованных действий, план фиксирует это через `AG-*`.
+7. Если ID начинает использоваться как стабильная сущность, его смысл должен быть совместим с этим документом.
