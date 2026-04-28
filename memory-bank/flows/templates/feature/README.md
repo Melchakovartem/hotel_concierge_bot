@@ -23,10 +23,10 @@ template_target_path: ../../../features/FT-XXX/README.md
 Optional routes для living feature package добавляются после появления соответствующих документов. Типовой пример таких post-bootstrap routes:
 
 - [`implementation-plan.md`](implementation-plan.md)
-  Читать, когда нужно: после появления этого файла разложить реализацию по шагам, workstreams, checkpoints и traceability к canonical IDs.
-  Отвечает на вопрос: как провести реализацию фичи от текущего состояния до приёмки.
+  Читать, когда нужно: использовать template derived execution-плана при инстанцировании будущего `implementation-plan.md` в feature package.
+  Отвечает на вопрос: как оформить sequencing, workstreams, checkpoints и traceability к canonical IDs без переопределения canonical feature scope.
 
-- `../../../adr/ADR-XXX.md`
+- [`../adr/ADR-XXX.md`](../adr/ADR-XXX.md)
   Читать, когда нужно: если по фиче существует связанный ADR, оформить или проверить его с корректным `decision_status`.
   Отвечает на вопрос: почему по фиче выбирается конкретное архитектурное или инженерное решение и на каком оно этапе.
 

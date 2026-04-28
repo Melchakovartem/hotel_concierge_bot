@@ -14,11 +14,12 @@
 4. Через `review-brief.md` доводишь `brief.md` до состояния без замечаний.
 5. Из `brief.md` через агента создаешь GitHub Issue.
 6. По номеру issue создаешь отдельную ветку.
-7. В ветке через `orient-triage.md` + `spec.md` создаешь `feature.md`.
-8. Через `review-spec.md` доводишь `feature.md` до состояния без замечаний.
-9. Через `plan-implement.md` создаешь `implementation-plan.md`.
-10. Через `review-plan.md` доводишь `implementation-plan.md` до состояния без замечаний.
-11. Только после этого переходишь к реализации.
+7. В ветке через `orient-triage.md` + `spec.md` начинаешь собирать `feature.md`.
+8. Если внутри фичи всплывает долгоживущее архитектурное решение, сначала создаешь `ADR`, доводишь его до `accepted`, потом возвращаешься к `feature.md`.
+9. Через `review-spec.md` доводишь `feature.md` до состояния без замечаний.
+10. Через `plan-implement.md` создаешь `implementation-plan.md`.
+11. Через `review-plan.md` доводишь `implementation-plan.md` до состояния без замечаний.
+12. Только после этого переходишь к реализации.
 
 ## Общий принцип
 
@@ -27,11 +28,12 @@
 Правильная последовательность:
 
 1. Подготовить и отревьюить `brief` / бизнес-постановку.
-2. Сгенерировать `feature.md`.
-3. Отревьюить `feature.md` до нуля замечаний.
-4. Сгенерировать `implementation-plan.md`.
-5. Отревьюить `implementation-plan.md` до нуля замечаний.
-6. Только потом переходить к реализации.
+2. При необходимости создать и принять `ADR` для архитектурного решения, которое переживет одну фичу.
+3. Сгенерировать `feature.md`.
+4. Отревьюить `feature.md` до нуля замечаний.
+5. Сгенерировать `implementation-plan.md`.
+6. Отревьюить `implementation-plan.md` до нуля замечаний.
+7. Только потом переходить к реализации.
 
 ## 0. Подготовка
 
@@ -104,7 +106,41 @@ cat .prompts/review-brief.md
 cat > tmp/ai/brief-final.md
 ```
 
-## 2. Сгенерировать `feature.md` из brief
+## 2. Проверить, нужен ли `ADR`
+
+После того как `brief` стабилен, проверь: есть ли в задаче архитектурная развилка.
+
+`ADR` нужен, если решение:
+
+- влияет не только на эту фичу, но и на будущие фичи;
+- задает долгоживущее ограничение для архитектуры или интеграций;
+- определяет устойчивый паттерн, который потом будет переиспользоваться;
+- не должно быть заново описано в каждом следующем `feature.md`.
+
+Примеры для Hotel Concierge Bot:
+
+- границы между `admin` и `operations` namespace;
+- async delivery, retry policy, Redis / Sidekiq behavior;
+- role model для `guest`, `staff`, `manager`, `admin`;
+- каналы коммуникации и интеграционные boundaries.
+
+`ADR` не нужен для обычного CRUD, локального рефакторинга или acceptance criteria одной delivery-единицы.
+
+Если `ADR` не нужен — переходи сразу к следующему разделу.
+
+Если `ADR` нужен:
+
+1. Создай новый файл в `memory-bank/adr/` по шаблону [`memory-bank/flows/templates/adr/ADR-XXX.md`](../memory-bank/flows/templates/adr/ADR-XXX.md).
+2. Сначала зафиксируй его как `proposed`.
+3. Прогони обсуждение и уточнение решения в отдельной сессии.
+4. Когда решение принято, переведи `ADR` в `accepted`.
+5. Только после этого возвращайся к `feature.md`.
+
+Роль `ADR` в цепочке:
+
+`brief.md -> ADR (если нужен) -> feature.md -> implementation-plan.md -> code`
+
+## 3. Сгенерировать `feature.md` из brief
 
 Для этого нужна новая отдельная сессия.
 
@@ -135,8 +171,10 @@ cat .prompts/spec.md
 2. Найди релевантные существующие feature packages
 3. На основе brief собери draft `memory-bank/features/FT-004/feature.md`
 4. Используй format и depth, совместимые с `FT-001`, `FT-002`, `FT-003`
-5. В документе должны быть `What`, `How`, `Verify`, stable identifiers и traceability
-6. Не переходи к `implementation-plan.md`
+5. Если для фичи уже существует `accepted ADR`, используй его как upstream constraint и явно сослаться на него в `ADR Dependencies`
+6. Если в процессе выяснится, что без архитектурного решения дальше нельзя, остановись и предложи сначала завести `ADR`, а не додумывай решение внутри `feature.md`
+7. В документе должны быть `What`, `How`, `Verify`, stable identifiers и traceability
+8. Не переходи к `implementation-plan.md`
 ```
 
 Для ориентира можно быстро открыть существующие примеры:
@@ -147,7 +185,7 @@ sed -n '1,220p' memory-bank/features/FT-002/feature.md
 sed -n '1,220p' memory-bank/features/FT-003/feature.md
 ```
 
-## 3. Отревьюить `feature.md` до нуля замечаний
+## 4. Отревьюить `feature.md` до нуля замечаний
 
 Для этого нужна еще одна новая сессия.
 
@@ -182,7 +220,7 @@ git diff -- memory-bank/features/$FT/feature.md
 
 `Замечаний нет, спека готова к реализации`.
 
-## 4. Сгенерировать `implementation-plan.md` из готового `feature.md`
+## 5. Сгенерировать `implementation-plan.md` из готового `feature.md`
 
 Это делается только после того, как `feature.md` стабилен.
 
@@ -214,8 +252,9 @@ cat .prompts/plan-implement.md
    - Execution Risks
    - Stop Conditions / Fallback
    - Ready For Acceptance
-4. Используй стиль и глубину, совместимые с `FT-001`, `FT-002`, `FT-003`
-5. Не переходи к реализации кода
+4. Если `feature.md` ссылается на `ADR`, учитывай его как fixed architectural input и не переопределяй решение в плане
+5. Используй стиль и глубину, совместимые с `FT-001`, `FT-002`, `FT-003`
+6. Не переходи к реализации кода
 ```
 
 Для ориентира можно открыть примеры:
@@ -226,7 +265,7 @@ sed -n '1,260p' memory-bank/features/FT-002/implementation-plan.md
 sed -n '1,260p' memory-bank/features/FT-003/implementation-plan.md
 ```
 
-## 5. Отревьюить `implementation-plan.md` до нуля замечаний
+## 6. Отревьюить `implementation-plan.md` до нуля замечаний
 
 Еще одна отдельная сессия.
 
@@ -260,7 +299,7 @@ git diff -- memory-bank/features/$FT/implementation-plan.md
 
 `Замечаний нет, план готов к реализации`.
 
-## 6. Минимальный полный pipeline
+## 7. Минимальный полный pipeline
 
 Если кратко, для каждой новой фичи:
 
@@ -274,12 +313,13 @@ mkdir -p "$FT_DIR"
 Дальше по отдельным сессиям:
 
 1. `review-brief.md`
-2. `orient-triage.md` + `spec.md`
-3. `review-spec.md`
-4. `plan-implement.md`
-5. `review-plan.md`
+2. `ADR`, если нужен
+3. `orient-triage.md` + `spec.md`
+4. `review-spec.md`
+5. `plan-implement.md`
+6. `review-plan.md`
 
-## 7. Простая автоматизация
+## 8. Простая автоматизация
 
 Чтобы не вспоминать каждый раз пути, можно добавить такие функции в `~/.zshrc`:
 
@@ -320,7 +360,7 @@ pp review-plan
 ftshow
 ```
 
-## 8. Практический пример
+## 9. Практический пример
 
 Пример для задачи "реализовать авторизацию пользователя":
 
@@ -337,12 +377,13 @@ EOF
 
 1. Новая сессия: `pp review-brief` + текст из `tmp/ai/brief-input.md`
 2. Сохранить улучшенный brief в `tmp/ai/brief-final.md`
-3. Новая сессия: `pp orient-triage`, потом `pp spec`, потом попросить создать `memory-bank/features/FT-004/feature.md`
-4. Новая сессия: `pp review-spec`, потом довести `feature.md` до нуля замечаний
-5. Новая сессия: `pp plan-implement`, потом попросить создать `implementation-plan.md`
-6. Новая сессия: `pp review-plan`, потом довести план до нуля замечаний
+3. Проверить, не нужен ли `ADR`; если нужен, сначала создать и принять его в `memory-bank/adr/`
+4. Новая сессия: `pp orient-triage`, потом `pp spec`, потом попросить создать `memory-bank/features/FT-004/feature.md`
+5. Новая сессия: `pp review-spec`, потом довести `feature.md` до нуля замечаний
+6. Новая сессия: `pp plan-implement`, потом попросить создать `implementation-plan.md`
+7. Новая сессия: `pp review-plan`, потом довести план до нуля замечаний
 
-## 9. Важное правило
+## 10. Важное правило
 
 Не смешивай этапы.
 
@@ -353,10 +394,11 @@ EOF
 Хорошо:
 
 - отдельная сессия на authoring;
+- отдельная сессия на `ADR`, если он нужен;
 - отдельная на review;
 - отдельная на следующий артефакт.
 
-## 10. Что можно улучшить потом
+## 11. Что можно улучшить потом
 
 Сейчас уже есть рабочий набор prompt-ов, но в будущем можно добавить еще два authoring prompt-а:
 

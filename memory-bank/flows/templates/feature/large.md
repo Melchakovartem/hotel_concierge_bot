@@ -140,7 +140,7 @@ must_not_define:
 
 | ADR | Current `decision_status` | Used for | Execution rule |
 | --- | --- | --- | --- |
-| [../../adr/ADR-XXX.md](../../adr/ADR-XXX.md) | `proposed` / `accepted` | Для какого design-choice или baseline это нужно | `proposed` используется только как hypothesis / benchmark candidate и не считается finalized design; `accepted` можно использовать как canonical input |
+| [../adr/ADR-XXX.md](../adr/ADR-XXX.md) | `proposed` / `accepted` | Для какого design-choice или baseline это нужно | `proposed` используется только как hypothesis / benchmark candidate и не считается finalized design; `accepted` можно использовать как canonical input |
 
 ## Verify
 
