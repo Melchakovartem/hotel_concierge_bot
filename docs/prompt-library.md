@@ -9,38 +9,38 @@
 3. Передай промпт агенту в начале новой сессии.
 4. Если задача узкая, используй artifact-specific prompt; если нужен общий вход в работу — flow-specific prompt.
 
-Подробный пошаговый процесс смотри в [`feature-workflow.md`](feature-workflow.md).
-Короткий чеклист этого процесса тоже находится в начале [`feature-workflow.md`](feature-workflow.md).
+Подробный пошаговый процесс смотри в [feature-workflow.md](feature-workflow.md).
+Короткий чеклист этого процесса тоже находится в начале [feature-workflow.md](feature-workflow.md).
 
 ## Flow Prompts
 
-- [`orient-triage.md`](orient-triage.md)
+- [`orient-triage.md`](../.prompts/orient-triage.md)
   Когда использовать: быстрый вход в проект, выбор релевантного `feature package` и следующего flow.
 
-- [`spec.md`](spec.md)
+- [`spec.md`](../.prompts/spec.md)
   Когда использовать: подготовка, проверка или уточнение спецификации фичи.
 
-- [`plan-implement.md`](plan-implement.md)
+- [`plan-implement.md`](../.prompts/plan-implement.md)
   Когда использовать: переход от feature contract к плану реализации и коду.
 
-- [`review-verify.md`](review-verify.md)
+- [`review-verify.md`](../.prompts/review-verify.md)
   Когда использовать: review изменений относительно feature contract, acceptance criteria и test strategy.
 
-- [`resume-continue.md`](resume-continue.md)
+- [`resume-continue.md`](../.prompts/resume-continue.md)
   Когда использовать: восстановление контекста после паузы и определение следующего шага.
 
 ## Artifact-Specific Prompts
 
-- [`review-brief.md`](review-brief.md)
+- [`review-brief.md`](../.prompts/review-brief.md)
   Когда использовать: ревью `Brief` на полноту, однозначность и отсутствие solution bias.
 
-- [`next-feature-brief.md`](next-feature-brief.md)
+- [`next-feature-brief.md`](../.prompts/next-feature-brief.md)
   Когда использовать: выбрать следующую фичу по `CURRENT_PHASE.md` и `roadmap.md` и собрать для нее стартовый `Brief`.
 
-- [`review-spec.md`](review-spec.md)
+- [`review-spec.md`](../.prompts/review-spec.md)
   Когда использовать: ревью `Spec` по критериям `TAUS` и дополнительным structural checks.
 
-- [`review-plan.md`](review-plan.md)
+- [`review-plan.md`](../.prompts/review-plan.md)
   Когда использовать: ревью `Implementation Plan` на выполнимость, порядок шагов и grounding.
 
 ## Быстрый выбор
